@@ -1,0 +1,282 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Printer } from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { AppShell } from "@/components/app-shell";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { gradeFor, type GradeBand } from "@/lib/academic";
+import {
+  logAudit,
+  useClasses,
+  useComponents,
+  useGradeScale,
+  useSchool,
+  useStudents,
+  useSubjects,
+  useTerms,
+} from "@/lib/data";
+
+export const Route = createFileRoute("/_authenticated/reports")({
+  head: () => ({
+    meta: [
+      { title: "Report cards — MayDan EduRecord" },
+      {
+        name: "description",
+        content: "Generate, comment on, publish and print termly student report cards.",
+      },
+      { property: "og:title", content: "Report cards — MayDan EduRecord" },
+      { property: "og:description", content: "Termly report card generation and publishing." },
+    ],
+  }),
+  component: ReportsPage,
+});
+
+function ReportsPage() {
+  const { data: classes = [] } = useClasses();
+  const { data: terms = [] } = useTerms();
+  const { data: subjects = [] } = useSubjects();
+  const { data: components = [] } = useComponents();
+  const { data: bands = [] } = useGradeScale();
+  const { data: school } = useSchool();
+  const [classId, setClassId] = useState("");
+  const [termId, setTermId] = useState("");
+  const [studentId, setStudentId] = useState("");
+  const { data: students = [] } = useStudents(classId || undefined);
+  const queryClient = useQueryClient();
+  const [teacherComment, setTeacherComment] = useState("");
+  const [headComment, setHeadComment] = useState("");
+
+  useEffect(() => {
+    if (classes.length && !classId) setClassId((classes[0] as { id: string }).id);
+    if (!termId) {
+      const current = terms.find((t) => (t as { is_current: boolean }).is_current) as
+        | { id: string }
+        | undefined;
+      if (current) setTermId(current.id);
+      else if (terms.length) setTermId((terms[0] as { id: string }).id);
+    }
+  }, [classes, terms, classId, termId]);
+
+  useEffect(() => {
+    setStudentId(students.length ? (students[0] as { id: string }).id : "");
+  }, [students]);
+
+  const { data: scores = [] } = useQuery({
+    enabled: Boolean(studentId && termId),
+    queryKey: ["report-scores", studentId, termId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("assessment_scores")
+        .select("subject_id, component_id, score")
+        .eq("student_id", studentId)
+        .eq("term_id", termId);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const { data: card } = useQuery({
+    enabled: Boolean(studentId && termId),
+    queryKey: ["report-card", studentId, termId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("report_cards")
+        .select("*")
+        .eq("student_id", studentId)
+        .eq("term_id", termId)
+        .maybeSingle();
+      return data;
+    },
+  });
+
+  useEffect(() => {
+    setTeacherComment((card as { teacher_comment?: string } | null)?.teacher_comment ?? "");
+    setHeadComment((card as { head_comment?: string } | null)?.head_comment ?? "");
+  }, [card]);
+
+  const rows = useMemo(() => {
+    const maxTotal = (components as { max_score: number }[]).reduce(
+      (sum, c) => sum + Number(c.max_score),
+      0,
+    );
+    return (subjects as { id: string; name: string }[])
+      .map((subject) => {
+        const total = (scores as { subject_id: string; score: number }[])
+          .filter((s) => s.subject_id === subject.id)
+          .reduce((sum, s) => sum + Number(s.score), 0);
+        const band = gradeFor(total, bands as GradeBand[]);
+        return { subject: subject.name, total, maxTotal, band };
+      })
+      .filter((row) => row.total > 0);
+  }, [subjects, scores, bands, components]);
+
+  const average = rows.length
+    ? Math.round((rows.reduce((sum, r) => sum + r.total, 0) / rows.length) * 10) / 10
+    : 0;
+  const student = students.find((s) => (s as { id: string }).id === studentId) as
+    | { full_name: string; admission_number: string; classes?: { name: string } | null }
+    | undefined;
+  const published = Boolean((card as { published?: boolean } | null)?.published);
+
+  async function saveCard(publish: boolean) {
+    if (!studentId || !termId) return;
+    const { data: auth } = await supabase.auth.getUser();
+    const { error } = await supabase.from("report_cards").upsert(
+      {
+        student_id: studentId,
+        term_id: termId,
+        average,
+        teacher_comment: teacherComment || null,
+        head_comment: headComment || null,
+        published: publish,
+        published_at: publish ? new Date().toISOString() : null,
+        published_by: publish ? (auth.user?.id ?? null) : null,
+        snapshot: { rows, average },
+      },
+      { onConflict: "student_id,term_id" },
+    );
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(publish ? "Report card published" : "Report card saved");
+    void logAudit(publish ? "report.published" : "report.saved", studentId);
+    void queryClient.invalidateQueries({ queryKey: ["report-card"] });
+  }
+
+  return (
+    <AppShell
+      title="Report cards"
+      description={published ? "Published — locked from edits" : "Draft"}
+      actions={
+        <Button size="sm" variant="outline" onClick={() => window.print()}>
+          <Printer className="mr-2 size-4" /> Print
+        </Button>
+      }
+    >
+      <div className="surface-card grid gap-4 p-4 print:hidden sm:grid-cols-3">
+        {[
+          { label: "Class", value: classId, set: setClassId, options: classes, key: "name" },
+          { label: "Term", value: termId, set: setTermId, options: terms, key: "name" },
+          {
+            label: "Student",
+            value: studentId,
+            set: setStudentId,
+            options: students,
+            key: "full_name",
+          },
+        ].map(({ label, value, set, options, key }) => (
+          <div key={label} className="space-y-2">
+            <Label htmlFor={label}>{label}</Label>
+            <select
+              id={label}
+              value={value}
+              onChange={(e) => set(e.target.value)}
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+            >
+              {options.map((option) => {
+                const item = option as Record<string, string>;
+                return (
+                  <option key={item['id']} value={item['id']}>
+                    {item[key]}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+        ))}
+      </div>
+
+      <article className="surface-card p-6">
+        <header className="border-b border-border pb-4 text-center">
+          <h2 className="text-lg font-bold">{school?.name ?? "MayDan Academy"}</h2>
+          <p className="text-xs text-muted-foreground">{school?.motto ?? "Knowledge and character"}</p>
+          <p className="mt-2 text-sm font-semibold">Termly report card</p>
+        </header>
+
+        <div className="grid gap-2 py-4 text-sm sm:grid-cols-3">
+          <p>
+            <span className="text-muted-foreground">Student: </span>
+            <span className="font-medium">{student?.full_name ?? "—"}</span>
+          </p>
+          <p>
+            <span className="text-muted-foreground">Admission no.: </span>
+            <span className="font-medium">{student?.admission_number ?? "—"}</span>
+          </p>
+          <p>
+            <span className="text-muted-foreground">Class: </span>
+            <span className="font-medium">{student?.classes?.name ?? "—"}</span>
+          </p>
+        </div>
+
+        <table className="w-full text-sm">
+          <thead className="bg-secondary/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
+            <tr>
+              <th className="px-3 py-2">Subject</th>
+              <th className="px-3 py-2">Total</th>
+              <th className="px-3 py-2">Grade</th>
+              <th className="px-3 py-2">Remark</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {rows.map((row) => (
+              <tr key={row.subject}>
+                <td className="px-3 py-2 font-medium">{row.subject}</td>
+                <td className="px-3 py-2">
+                  {row.total} / {row.maxTotal}
+                </td>
+                <td className="px-3 py-2 font-semibold">{row.band?.grade ?? "—"}</td>
+                <td className="px-3 py-2 text-muted-foreground">{row.band?.remark ?? "—"}</td>
+              </tr>
+            ))}
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={4} className="px-3 py-3 text-muted-foreground">
+                  No submitted scores for this student and term yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+
+        <p className="mt-4 text-sm font-semibold">Average: {average}</p>
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="tc">Class teacher&apos;s comment</Label>
+            <Textarea
+              id="tc"
+              rows={3}
+              disabled={published}
+              value={teacherComment}
+              onChange={(e) => setTeacherComment(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="hc">Head teacher&apos;s comment</Label>
+            <Textarea
+              id="hc"
+              rows={3}
+              disabled={published}
+              value={headComment}
+              onChange={(e) => setHeadComment(e.target.value)}
+            />
+          </div>
+        </div>
+      </article>
+
+      <div className="flex flex-wrap gap-2 print:hidden">
+        <Button variant="outline" disabled={published || !studentId} onClick={() => void saveCard(false)}>
+          Save draft
+        </Button>
+        <Button disabled={published || !studentId} onClick={() => void saveCard(true)}>
+          Publish report card
+        </Button>
+      </div>
+    </AppShell>
+  );
+}
