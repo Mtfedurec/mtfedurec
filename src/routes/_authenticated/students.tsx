@@ -1,0 +1,213 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { AppShell } from "@/components/app-shell";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { logAudit, useClasses, useStudents } from "@/lib/data";
+
+export const Route = createFileRoute("/_authenticated/students")({
+  head: () => ({
+    meta: [
+      { title: "Students — MayDan EduRecord" },
+      {
+        name: "description",
+        content: "Admission records, class placement and guardian details for every student.",
+      },
+      { property: "og:title", content: "Students — MayDan EduRecord" },
+      { property: "og:description", content: "Student admission and class placement records." },
+    ],
+  }),
+  component: StudentsPage,
+});
+
+function StudentsPage() {
+  const { data: classes = [] } = useClasses();
+  const [filter, setFilter] = useState("");
+  const [search, setSearch] = useState("");
+  const { data: students = [] } = useStudents(filter || undefined);
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState({
+    full_name: "",
+    admission_number: "",
+    gender: "female",
+    class_id: "",
+    guardian_name: "",
+    guardian_phone: "",
+  });
+  const [busy, setBusy] = useState(false);
+
+  const visible = students.filter((s) =>
+    (s as { full_name: string }).full_name.toLowerCase().includes(search.toLowerCase()),
+  );
+
+  async function addStudent(event: React.FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    const { error } = await supabase.from("students").insert({
+      ...form,
+      class_id: form.class_id || null,
+    });
+    setBusy(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Student admitted");
+    void logAudit("student.created", form.admission_number, form.full_name);
+    setForm({
+      full_name: "",
+      admission_number: "",
+      gender: "female",
+      class_id: "",
+      guardian_name: "",
+      guardian_phone: "",
+    });
+    void queryClient.invalidateQueries({ queryKey: ["students"] });
+  }
+
+  return (
+    <AppShell title="Students" description={`${students.length} active record(s)`}>
+      <form onSubmit={addStudent} className="surface-card grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="space-y-2">
+          <Label htmlFor="full_name">Full name</Label>
+          <Input
+            id="full_name"
+            required
+            value={form.full_name}
+            onChange={(e) => setForm({ ...form, full_name: e.target.value })}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="admission_number">Admission number</Label>
+          <Input
+            id="admission_number"
+            required
+            value={form.admission_number}
+            onChange={(e) => setForm({ ...form, admission_number: e.target.value })}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="gender">Gender</Label>
+          <select
+            id="gender"
+            value={form.gender}
+            onChange={(e) => setForm({ ...form, gender: e.target.value })}
+            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+          >
+            <option value="female">Female</option>
+            <option value="male">Male</option>
+          </select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="class_id">Class</Label>
+          <select
+            id="class_id"
+            value={form.class_id}
+            onChange={(e) => setForm({ ...form, class_id: e.target.value })}
+            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+          >
+            <option value="">Unassigned</option>
+            {classes.map((c) => {
+              const cls = c as { id: string; name: string };
+              return (
+                <option key={cls.id} value={cls.id}>
+                  {cls.name}
+                </option>
+              );
+            })}
+          </select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="guardian_name">Guardian</Label>
+          <Input
+            id="guardian_name"
+            value={form.guardian_name}
+            onChange={(e) => setForm({ ...form, guardian_name: e.target.value })}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="guardian_phone">Guardian phone</Label>
+          <Input
+            id="guardian_phone"
+            value={form.guardian_phone}
+            onChange={(e) => setForm({ ...form, guardian_phone: e.target.value })}
+          />
+        </div>
+        <div className="sm:col-span-2 lg:col-span-3">
+          <Button type="submit" disabled={busy}>
+            Admit student
+          </Button>
+        </div>
+      </form>
+
+      <div className="flex flex-wrap gap-3">
+        <Input
+          placeholder="Search by name"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="max-w-xs"
+        />
+        <select
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+        >
+          <option value="">All classes</option>
+          {classes.map((c) => {
+            const cls = c as { id: string; name: string };
+            return (
+              <option key={cls.id} value={cls.id}>
+                {cls.name}
+              </option>
+            );
+          })}
+        </select>
+      </div>
+
+      <div className="surface-card overflow-x-auto">
+        <table className="w-full min-w-[560px] text-sm">
+          <thead className="bg-secondary/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
+            <tr>
+              <th className="px-4 py-3">Name</th>
+              <th className="px-3 py-3">Admission no.</th>
+              <th className="px-3 py-3">Class</th>
+              <th className="px-4 py-3">Guardian</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {visible.map((s) => {
+              const student = s as {
+                id: string;
+                full_name: string;
+                admission_number: string;
+                guardian_name: string | null;
+                classes?: { name: string } | null;
+              };
+              return (
+                <tr key={student.id}>
+                  <td className="px-4 py-2 font-medium">{student.full_name}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{student.admission_number}</td>
+                  <td className="px-3 py-2">{student.classes?.name ?? "—"}</td>
+                  <td className="px-4 py-2 text-muted-foreground">
+                    {student.guardian_name ?? "—"}
+                  </td>
+                </tr>
+              );
+            })}
+            {visible.length === 0 && (
+              <tr>
+                <td colSpan={4} className="px-4 py-4 text-muted-foreground">
+                  No students found.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </AppShell>
+  );
+}
