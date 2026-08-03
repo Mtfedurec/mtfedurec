@@ -33,6 +33,7 @@ export const Route = createFileRoute("/_authenticated/settings")({
 });
 
 const ROLES = ["admin", "head_teacher", "teacher"] as const;
+type AppRole = (typeof ROLES)[number];
 
 function SettingsPage() {
   const { data: school } = useSchool();
@@ -72,7 +73,7 @@ function SettingsPage() {
     void queryClient.invalidateQueries({ queryKey: ["school"] });
   }
 
-  async function toggleRole(userId: string, role: string, has: boolean) {
+  async function toggleRole(userId: string, role: AppRole, has: boolean) {
     const { error } = has
       ? await supabase.from("user_roles").delete().eq("user_id", userId).eq("role", role)
       : await supabase.from("user_roles").insert({ user_id: userId, role });
