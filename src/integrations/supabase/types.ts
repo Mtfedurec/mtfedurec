@@ -474,6 +474,42 @@ export type Database = {
         }
         Relationships: []
       }
+      perf_metrics: {
+        Row: {
+          action: string | null
+          created_at: string
+          duration_ms: number
+          id: number
+          kind: string
+          method: string | null
+          model: string | null
+          path: string | null
+          status_code: number | null
+        }
+        Insert: {
+          action?: string | null
+          created_at?: string
+          duration_ms: number
+          id?: number
+          kind: string
+          method?: string | null
+          model?: string | null
+          path?: string | null
+          status_code?: number | null
+        }
+        Update: {
+          action?: string | null
+          created_at?: string
+          duration_ms?: number
+          id?: number
+          kind?: string
+          method?: string | null
+          model?: string | null
+          path?: string | null
+          status_code?: number | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -754,6 +790,7 @@ export type Database = {
       }
       is_manager: { Args: { _user_id: string }; Returns: boolean }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
+      prune_perf_metrics: { Args: never; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "head_teacher" | "teacher"
