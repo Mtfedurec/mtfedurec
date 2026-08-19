@@ -206,13 +206,13 @@ export async function renderPrometheus(): Promise<string> {
       const c = counter.get(key) ?? { labels, count: 0 };
       c.count += 1;
       counter.set(key, c);
-      const h = httpHist.get(key) ?? { labels, durationsSec: [] };
+      const h = httpHist.get(key) ?? { labels, durationsSec: [] as number[] };
       h.durationsSec.push(seconds);
       httpHist.set(key, h);
     } else {
       const labels = { model: r.model ?? "raw", action: r.action ?? "query" };
       const key = `${labels.model}|${labels.action}`;
-      const h = dbHist.get(key) ?? { labels, durationsSec: [] };
+      const h = dbHist.get(key) ?? { labels, durationsSec: [] as number[] };
       h.durationsSec.push(seconds);
       dbHist.set(key, h);
     }
