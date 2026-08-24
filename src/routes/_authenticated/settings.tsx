@@ -73,16 +73,28 @@ function SettingsPage() {
     void queryClient.invalidateQueries({ queryKey: ["school"] });
   }
 
-  async function toggleRole(userId: string, role: AppRole, has: boolean) {
-    const { error } = has
-      ? await supabase.from("user_roles").delete().eq("user_id", userId).eq("role", role)
-      : await supabase.from("user_roles").insert({ user_id: userId, role });
-    if (error) {
-      toast.error(error.message);
+  async function setRole(userId: string, role: AppRole) {
+    const { error: deleteError } = await supabase
+      .from("user_roles")
+      .delete()
+      .eq("user_id", userId);
+
+    if (deleteError) {
+      toast.error(deleteError.message);
       return;
     }
-    toast.success("Roles updated");
-    void logAudit(has ? "role.revoked" : "role.granted", userId, role);
+
+    const { error: insertError } = await supabase
+      .from("user_roles")
+      .insert({ user_id: userId, role });
+
+    if (insertError) {
+      toast.error(insertError.message);
+      return;
+    }
+
+    toast.success("Role updated");
+    void logAudit("role.changed", userId, role);
     void queryClient.invalidateQueries({ queryKey: ["staff"] });
     void queryClient.invalidateQueries({ queryKey: ["me"] });
   }
@@ -230,7 +242,7 @@ function SettingsPage() {
                       size="sm"
                       variant={has ? "default" : "outline"}
                       disabled={!isAdmin}
-                      onClick={() => void toggleRole(member.id, role, has)}
+                      onClick={() => void setRole(member.id, role)}
                     >
                       {role.replace("_", " ")}
                     </Button>

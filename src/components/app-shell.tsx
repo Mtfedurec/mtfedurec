@@ -1,6 +1,7 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  ArrowLeft,
   BarChart3,
   CalendarCheck,
   ClipboardList,
@@ -443,6 +444,18 @@ export function AppShell({
 
         <header className="sticky top-0 z-20 border-b border-border bg-background/85 backdrop-blur">
           <div className="flex items-center gap-3 px-4 py-3 lg:px-8">
+            {pathname !== "/dashboard" && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => window.history.back()}
+                aria-label="Go back"
+                title="Go back"
+              >
+                <ArrowLeft className="size-5" />
+              </Button>
+            )}
+
             <Button
               variant="ghost"
               size="icon"
