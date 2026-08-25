@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafely } from "@/integrations/supabase/auth-helper";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,14 +77,14 @@ function AttendancePage() {
       return;
     }
     setSaving(true);
-    const { data: auth } = await supabase.auth.getUser();
+    const session = await getSessionSafely();
     const rows = entries.map(([student_id, status]) => ({
       student_id,
       class_id: classId,
       attendance_date: date,
       status,
       state: "submitted",
-      recorded_by: auth.user?.id ?? null,
+      recorded_by: session?.user.id ?? null,
     }));
     const result = await save({
       table: "attendance",

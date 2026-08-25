@@ -134,8 +134,20 @@ function RootComponent() {
   const router = useRouter();
 
   useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      void navigator.serviceWorker.register("/sw.js").catch((error: unknown) => {
+        console.warn("Unable to register offline app cache:", error);
+      });
+    }
+  }, []);
+
+  useEffect(() => {
     const { data } = supabase.auth.onAuthStateChange((event) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
+      if (event === "SIGNED_OUT") {
+        localStorage.removeItem("maydan-query-cache");
+        queryClient.clear();
+      }
       router.invalidate();
       if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
     });

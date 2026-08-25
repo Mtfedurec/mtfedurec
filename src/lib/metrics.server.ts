@@ -8,6 +8,7 @@ import {
   type PerformanceSummary,
   type SeriesRow,
 } from "./metrics-shared";
+import type { Database } from "@/integrations/supabase/types";
 
 type MetricRow = {
   kind: "http" | "db";
@@ -32,22 +33,26 @@ export async function recordSamples(samples: MetricSample[]): Promise<void> {
   if (samples.length === 0) return;
   try {
     const db = await admin();
-    const payload = samples.slice(0, 500).map((s) =>
-      s.kind === "http"
-        ? {
+    const payload: Database["public"]["Tables"]["perf_metrics"]["Insert"][] = samples
+      .slice(0, 500)
+      .map((s): Database["public"]["Tables"]["perf_metrics"]["Insert"] => {
+        if (s.kind === "http") {
+          return {
             kind: "http",
             method: s.method.slice(0, 10).toUpperCase(),
             path: normalizePath(s.path),
             status_code: s.status_code,
             duration_ms: Math.max(0, Math.round(s.duration_ms * 1000) / 1000),
-          }
-        : {
-            kind: "db",
-            model: s.model.slice(0, 60),
-            action: s.action.slice(0, 30),
-            duration_ms: Math.max(0, Math.round(s.duration_ms * 1000) / 1000),
-          },
-    );
+          };
+        }
+
+        return {
+          kind: "db",
+          model: s.model.slice(0, 60),
+          action: s.action.slice(0, 30),
+          duration_ms: Math.max(0, Math.round(s.duration_ms * 1000) / 1000),
+        };
+      });
     await db.from("perf_metrics").insert(payload);
   } catch (error) {
     console.error("[metrics] failed to record samples", error);

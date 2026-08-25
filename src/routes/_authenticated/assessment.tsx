@@ -1033,6 +1033,18 @@ function AssessmentPage() {
       return;
     }
 
+    for (const [key, value] of enteredRows) {
+      const [, componentId] = key.split(":");
+      const component = comps.find((item) => item.id === componentId);
+      const numericScore = Number(value);
+      const maximum = Number(component?.max_score);
+
+      if (!component || !Number.isFinite(numericScore) || numericScore < 0 || numericScore > maximum) {
+        toast.error("Each score must be between 0 and its component maximum.");
+        return;
+      }
+    }
+
     setSaving(true);
 
     try {

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafely } from "@/integrations/supabase/auth-helper";
 
 async function rows<T>(promise: PromiseLike<{ data: T[] | null; error: unknown }>): Promise<T[]> {
   const { data, error } = await promise;
@@ -11,8 +12,9 @@ export function useProfile() {
   return useQuery({
     queryKey: ["me"],
     queryFn: async () => {
-      const { data: auth } = await supabase.auth.getUser();
-      const user = auth.user;
+      // Use getSessionSafely() to work both online and offline
+      const session = await getSessionSafely();
+      const user = session?.user;
       if (!user) return null;
       const [{ data: profile }, { data: roles }] = await Promise.all([
         supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
@@ -194,10 +196,10 @@ export function useStaff() {
 }
 
 export async function logAudit(action: string, target?: string, details?: string) {
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) return;
+  const session = await getSessionSafely();
+  if (!session?.user) return;
   await supabase.from("audit_logs").insert({
-    actor_id: data.user.id,
+    actor_id: session.user.id,
     action,
     target: target ?? null,
     details: details ?? null,

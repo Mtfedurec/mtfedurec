@@ -84,13 +84,13 @@ const NAV: NavItem[] = [
     to: "/students",
     label: "Students",
     icon: Users,
-    roles: ["admin", "head_teacher"],
+    roles: ["admin"],
   },
   {
     to: "/classes",
     label: "Classes & subjects",
     icon: GraduationCap,
-    roles: ["admin", "head_teacher", "teacher"],
+    roles: ["admin"],
   },
   {
     to: "/approvals",

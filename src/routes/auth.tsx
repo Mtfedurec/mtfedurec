@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   GraduationCap,
   Loader2,
@@ -41,7 +41,18 @@ export const Route = createFileRoute("/auth")({
 });
 
 type LoginRole = "admin" | "teacher";
-type View = "roles" | "login" | "signup" | "forgot";
+type View = "roles" | "login" | "signup" | "forgot" | "reset";
+
+function authErrorMessage(error: unknown, fallback: string): string {
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
+  if (message.includes("rate") || message.includes("too many")) {
+    return "Too many attempts. Please wait a moment and try again.";
+  }
+  if (message.includes("email not confirmed")) {
+    return "Please confirm your email before signing in.";
+  }
+  return fallback;
+}
 
 function AuthPage() {
   const navigate = useNavigate();
@@ -53,14 +64,28 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
 
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    const { data } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setView("reset");
+        setBusy(false);
+      }
+    });
+    return () => data.subscription.unsubscribe();
+  }, []);
 
   function resetFields() {
     setEmail("");
     setPassword("");
     setFullName("");
     setConfirmPassword("");
+    setNewPassword("");
+    setConfirmNewPassword("");
   }
 
   function chooseRole(role: LoginRole) {
@@ -82,6 +107,7 @@ function AuthPage() {
 
   function openSignup() {
     resetFields();
+    setSelectedRole("teacher");
     setView("signup");
   }
 
@@ -173,10 +199,9 @@ function AuthPage() {
         replace: true,
       });
     } catch (error) {
+      await supabase.auth.signOut();
       toast.error(
-        error instanceof Error
-          ? error.message
-          : "Unable to sign in. Please check your details and try again.",
+        authErrorMessage(error, "Unable to sign in. Please check your details and try again."),
       );
     } finally {
       setBusy(false);
@@ -220,7 +245,7 @@ function AuthPage() {
         options: {
           data: {
             full_name: fullName.trim(),
-            role: selectedRole === "admin" ? "admin" : "teacher",
+            role: "teacher",
           },
         },
       });
@@ -257,9 +282,7 @@ function AuthPage() {
       setConfirmPassword("");
     } catch (error) {
       toast.error(
-        error instanceof Error
-          ? error.message
-          : "Unable to create the account.",
+        authErrorMessage(error, "Unable to create the account. Please check your details and try again."),
       );
     } finally {
       setBusy(false);
@@ -297,11 +320,34 @@ function AuthPage() {
       setView("login");
       setPassword("");
     } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Unable to send the password reset email.",
-      );
+      toast.error(authErrorMessage(error, "Unable to process that request. Please try again."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function updatePassword(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (newPassword.length < 6) {
+      toast.error("Password must be at least 6 characters.");
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      toast.error("Passwords do not match.");
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      await supabase.auth.signOut();
+      toast.success("Password updated. Please sign in again.");
+      resetFields();
+      setSelectedRole(null);
+      setView("roles");
+    } catch (error) {
+      toast.error(authErrorMessage(error, "This reset link is invalid or expired. Request a new one."));
     } finally {
       setBusy(false);
     }
@@ -349,11 +395,7 @@ function AuthPage() {
         replace: true,
       });
     } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Google sign-in failed.",
-      );
+      toast.error(authErrorMessage(error, "Google sign-in failed. Try again or use your email and password."));
 
       setBusy(false);
     }
@@ -631,11 +673,7 @@ function AuthPage() {
                   </h1>
 
                   <p className="text-sm text-muted-foreground">
-                    Create your{" "}
-                    {selectedRole === "admin"
-                      ? "administrator"
-                      : "teacher"}{" "}
-                    account.
+                    Create your teacher account.
                   </p>
                 </div>
               </div>
@@ -727,11 +765,7 @@ function AuthPage() {
                     <Loader2 className="mr-2 size-4 animate-spin" />
                   )}
 
-                  Create{" "}
-                  {selectedRole === "admin"
-                    ? "Administrator"
-                    : "Teacher"}{" "}
-                  Account
+                  Create Teacher Account
                 </Button>
               </form>
 
@@ -739,14 +773,8 @@ function AuthPage() {
                 <strong className="text-foreground">
                   Account role:
                 </strong>{" "}
-                This account will be created as{" "}
-                <strong>
-                  {selectedRole === "admin"
-                    ? "Administrator"
-                    : "Teacher"}
-                </strong>
-                . Administrator privileges should only be
-                given to trusted school management.
+                This account will be created as <strong>Teacher</strong>. Administrator and head
+                teacher roles can only be assigned by school management.
               </div>
             </>
           )}
@@ -826,6 +854,35 @@ function AuthPage() {
                 requesting the reset link.
               </p>
             </>
+          )}
+
+          {view === "reset" && (
+            <form onSubmit={updatePassword} className="space-y-4">
+              <h1 className="text-xl font-bold">Set a new password</h1>
+              <p className="text-sm text-muted-foreground">Choose a new password for your account.</p>
+              <Input
+                type="password"
+                required
+                minLength={6}
+                autoComplete="new-password"
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+                placeholder="At least 6 characters"
+              />
+              <Input
+                type="password"
+                required
+                minLength={6}
+                autoComplete="new-password"
+                value={confirmNewPassword}
+                onChange={(event) => setConfirmNewPassword(event.target.value)}
+                placeholder="Enter the password again"
+              />
+              <Button type="submit" className="w-full" disabled={busy}>
+                {busy && <Loader2 className="mr-2 size-4 animate-spin" />}
+                Update Password
+              </Button>
+            </form>
           )}
         </div>
 

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafely } from "@/integrations/supabase/auth-helper";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -76,8 +77,12 @@ function BehaviourPage() {
       toast.error("Rate at least one trait.");
       return;
     }
+    if (entries.some(([, rating]) => !Number.isInteger(rating) || rating < 1 || rating > 5)) {
+      toast.error("Each behaviour rating must be between 1 and 5.");
+      return;
+    }
     setSaving(true);
-    const { data: auth } = await supabase.auth.getUser();
+    const session = await getSessionSafely();
     const rows = entries.map(([key, rating]) => {
       const [domain, trait] = key.split(":");
       return {
@@ -86,7 +91,7 @@ function BehaviourPage() {
         domain,
         trait,
         rating,
-        recorded_by: auth.user?.id ?? null,
+        recorded_by: session?.user.id ?? null,
       };
     });
     const result = await save({

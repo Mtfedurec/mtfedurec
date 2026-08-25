@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Printer } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { getSessionSafely } from "@/integrations/supabase/auth-helper";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -14,6 +15,7 @@ import {
   useClasses,
   useComponents,
   useGradeScale,
+  useProfile,
   useSchool,
   useStudents,
   useSubjects,
@@ -36,6 +38,7 @@ export const Route = createFileRoute("/_authenticated/reports")({
 });
 
 function ReportsPage() {
+  const { data: profile } = useProfile();
   const { data: classes = [] } = useClasses();
   const { data: terms = [] } = useTerms();
   const { data: subjects = [] } = useSubjects();
@@ -49,6 +52,8 @@ function ReportsPage() {
   const queryClient = useQueryClient();
   const [teacherComment, setTeacherComment] = useState("");
   const [headComment, setHeadComment] = useState("");
+  const roles = profile?.roles ?? [];
+  const isManager = roles.includes("admin") || roles.includes("head_teacher");
 
   useEffect(() => {
     if (classes.length && !classId) setClassId((classes[0] as { id: string }).id);
@@ -121,20 +126,37 @@ function ReportsPage() {
     | { full_name: string; admission_number: string; classes?: { name: string } | null }
     | undefined;
   const published = Boolean((card as { published?: boolean } | null)?.published);
+  const canEditTeacherRemark = !published && !isManager;
+  const canEditHeadRemark = !published && isManager;
+  const canPublish = isManager && !published && Boolean(studentId && termId);
 
   async function saveCard(publish: boolean) {
-    if (!studentId || !termId) return;
-    const { data: auth } = await supabase.auth.getUser();
+    if (!studentId || !termId) {
+      toast.error("Please select a student and term first.");
+      return;
+    }
+
+    if (publish && !isManager) {
+      toast.error("Only administrators and head teachers can publish report cards.");
+      return;
+    }
+
+    if (published && !publish) {
+      toast.error("Published report cards are locked and cannot be edited.");
+      return;
+    }
+
+    const session = await getSessionSafely();
     const { error } = await supabase.from("report_cards").upsert(
       {
         student_id: studentId,
         term_id: termId,
         average,
-        teacher_comment: teacherComment || null,
-        head_comment: headComment || null,
+        teacher_comment: canEditTeacherRemark || !isManager ? teacherComment || null : card?.teacher_comment ?? null,
+        head_comment: canEditHeadRemark || isManager ? headComment || null : card?.head_comment ?? null,
         published: publish,
         published_at: publish ? new Date().toISOString() : null,
-        published_by: publish ? (auth.user?.id ?? null) : null,
+        published_by: publish ? (session?.user.id ?? null) : null,
         snapshot: { rows, average },
       },
       { onConflict: "student_id,term_id" },
@@ -247,21 +269,21 @@ function ReportsPage() {
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="tc">Class teacher&apos;s comment</Label>
+            <Label htmlFor="tc">Teacher remark</Label>
             <Textarea
               id="tc"
               rows={3}
-              disabled={published}
+              disabled={published || !canEditTeacherRemark}
               value={teacherComment}
               onChange={(e) => setTeacherComment(e.target.value)}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="hc">Head teacher&apos;s comment</Label>
+            <Label htmlFor="hc">Head teacher remark</Label>
             <Textarea
               id="hc"
               rows={3}
-              disabled={published}
+              disabled={published || !canEditHeadRemark}
               value={headComment}
               onChange={(e) => setHeadComment(e.target.value)}
             />
@@ -270,10 +292,14 @@ function ReportsPage() {
       </article>
 
       <div className="flex flex-wrap gap-2 print:hidden">
-        <Button variant="outline" disabled={published || !studentId} onClick={() => void saveCard(false)}>
-          Save draft
+        <Button
+          variant="outline"
+          disabled={published || !studentId || !termId || (!isManager && !canEditTeacherRemark)}
+          onClick={() => void saveCard(false)}
+        >
+          {isManager ? "Save review" : "Submit teacher review"}
         </Button>
-        <Button disabled={published || !studentId} onClick={() => void saveCard(true)}>
+        <Button disabled={!canPublish} onClick={() => void saveCard(true)}>
           Publish report card
         </Button>
       </div>
