@@ -59,8 +59,7 @@ function ReportsPage() {
     if (classes.length && !classId) setClassId((classes[0] as { id: string }).id);
     if (!termId) {
       const current = terms.find((t) => (t as { is_current: boolean }).is_current) as
-        | { id: string }
-        | undefined;
+        { id: string } | undefined;
       if (current) setTermId(current.id);
       else if (terms.length) setTermId((terms[0] as { id: string }).id);
     }
@@ -123,8 +122,7 @@ function ReportsPage() {
     ? Math.round((rows.reduce((sum, r) => sum + r.total, 0) / rows.length) * 10) / 10
     : 0;
   const student = students.find((s) => (s as { id: string }).id === studentId) as
-    | { full_name: string; admission_number: string; classes?: { name: string } | null }
-    | undefined;
+    { full_name: string; admission_number: string; classes?: { name: string } | null } | undefined;
   const published = Boolean((card as { published?: boolean } | null)?.published);
   const canEditTeacherRemark = !published && !isManager;
   const canEditHeadRemark = !published && isManager;
@@ -152,8 +150,12 @@ function ReportsPage() {
         student_id: studentId,
         term_id: termId,
         average,
-        teacher_comment: canEditTeacherRemark || !isManager ? teacherComment || null : card?.teacher_comment ?? null,
-        head_comment: canEditHeadRemark || isManager ? headComment || null : card?.head_comment ?? null,
+        teacher_comment:
+          canEditTeacherRemark || !isManager
+            ? teacherComment || null
+            : (card?.teacher_comment ?? null),
+        head_comment:
+          canEditHeadRemark || isManager ? headComment || null : (card?.head_comment ?? null),
         published: publish,
         published_at: publish ? new Date().toISOString() : null,
         published_by: publish ? (session?.user.id ?? null) : null,
@@ -203,7 +205,7 @@ function ReportsPage() {
               {options.map((option) => {
                 const item = option as Record<string, string>;
                 return (
-                  <option key={item['id']} value={item['id']}>
+                  <option key={item["id"]} value={item["id"]}>
                     {item[key]}
                   </option>
                 );
@@ -216,7 +218,9 @@ function ReportsPage() {
       <article className="surface-card p-6">
         <header className="border-b border-border pb-4 text-center">
           <h2 className="text-lg font-bold">{school?.name ?? "MayDan Academy"}</h2>
-          <p className="text-xs text-muted-foreground">{school?.motto ?? "Knowledge and character"}</p>
+          <p className="text-xs text-muted-foreground">
+            {school?.motto ?? "Knowledge and character"}
+          </p>
           <p className="mt-2 text-sm font-semibold">Termly report card</p>
         </header>
 

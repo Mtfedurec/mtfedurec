@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   BarChart3,
+  Bell,
   CalendarCheck,
   ClipboardList,
   FileText,
@@ -25,25 +26,26 @@ import { useProfile, useSchool } from "@/lib/data";
 import { useSync } from "@/lib/offline";
 import { initials } from "@/lib/academic";
 import { Button } from "@/components/ui/button";
+import { NotificationBell } from "@/components/notification-bell";
 import { cn } from "@/lib/utils";
 
-type UserRole =
-  | "admin"
-  | "head_teacher"
-  | "teacher";
+type UserRole = "admin" | "head_teacher" | "teacher";
 
 type NavItem = {
   to:
     | "/dashboard"
     | "/attendance"
     | "/assessment"
+    | "/assessment-controls"
     | "/behaviour"
     | "/reports"
     | "/students"
     | "/classes"
     | "/approvals"
     | "/audit"
-    | "/settings";
+    | "/settings"
+    | "/announcements"
+    | "/notifications";
   label: string;
   icon: typeof LayoutDashboard;
   roles: UserRole[];
@@ -110,11 +112,27 @@ const NAV: NavItem[] = [
     icon: Settings,
     roles: ["admin"],
   },
+  {
+    to: "/announcements",
+    label: "Announcements",
+    icon: Bell,
+    roles: ["admin"],
+  },
+  {
+    to: "/notifications",
+    label: "Notifications",
+    icon: Bell,
+    roles: ["teacher", "head_teacher"],
+  },
+  {
+    to: "/assessment-controls",
+    label: "Assessment Controls",
+    icon: ShieldCheck,
+    roles: ["admin"],
+  },
 ];
 
-function getPrimaryRole(
-  roles: string[] | undefined,
-): UserRole {
+function getPrimaryRole(roles: string[] | undefined): UserRole {
   if (!roles || roles.length === 0) {
     return "teacher";
   }
@@ -130,9 +148,7 @@ function getPrimaryRole(
   return "teacher";
 }
 
-function roleLabel(
-  role: UserRole,
-): string {
+function roleLabel(role: UserRole): string {
   switch (role) {
     case "admin":
       return "Administrator";
@@ -146,19 +162,9 @@ function roleLabel(
 }
 
 function SyncBadge() {
-  const {
-    online,
-    state,
-    statusLabel,
-    flush,
-  } = useSync();
+  const { online, state, statusLabel, flush } = useSync();
 
-  const Icon =
-    !online
-      ? WifiOff
-      : state === "syncing"
-        ? RefreshCw
-        : Wifi;
+  const Icon = !online ? WifiOff : state === "syncing" ? RefreshCw : Wifi;
 
   return (
     <button
@@ -174,13 +180,7 @@ function SyncBadge() {
             : "border-success/30 bg-success/10 text-success",
       )}
     >
-      <Icon
-        className={cn(
-          "size-3.5",
-          state === "syncing" &&
-            "animate-spin",
-        )}
-      />
+      <Icon className={cn("size-3.5", state === "syncing" && "animate-spin")} />
 
       {statusLabel}
     </button>
@@ -198,28 +198,19 @@ export function AppShell({
   actions?: ReactNode;
   children: ReactNode;
 }) {
-  const {
-    data: profile,
-  } = useProfile();
+  const { data: profile } = useProfile();
 
-  const {
-    data: school,
-  } = useSchool();
+  const { data: school } = useSchool();
 
-  const navigate =
-    useNavigate();
+  const navigate = useNavigate();
 
-  const queryClient =
-    useQueryClient();
+  const queryClient = useQueryClient();
 
-  const [open, setOpen] =
-    useState(false);
+  const [open, setOpen] = useState(false);
 
-  const pathname =
-    useRouterState({
-      select: (s) =>
-        s.location.pathname,
-    });
+  const pathname = useRouterState({
+    select: (s) => s.location.pathname,
+  });
 
   /*
    * ---------------------------------------------------------
@@ -227,14 +218,7 @@ export function AppShell({
    * ---------------------------------------------------------
    */
 
-  const currentRole =
-    useMemo(
-      () =>
-        getPrimaryRole(
-          profile?.roles,
-        ),
-      [profile?.roles],
-    );
+  const currentRole = useMemo(() => getPrimaryRole(profile?.roles), [profile?.roles]);
 
   /*
    * ---------------------------------------------------------
@@ -260,15 +244,9 @@ export function AppShell({
    * ---------------------------------------------------------
    */
 
-  const visibleNav =
-    useMemo(() => {
-      return NAV.filter(
-        (item) =>
-          item.roles.includes(
-            currentRole,
-          ),
-      );
-    }, [currentRole]);
+  const visibleNav = useMemo(() => {
+    return NAV.filter((item) => item.roles.includes(currentRole));
+  }, [currentRole]);
 
   /*
    * ---------------------------------------------------------
@@ -298,9 +276,7 @@ export function AppShell({
       <aside
         className={cn(
           "brand-gradient fixed inset-y-0 left-0 z-40 flex w-72 flex-col text-sidebar-foreground transition-transform lg:sticky lg:top-0 lg:h-screen lg:translate-x-0",
-          open
-            ? "translate-x-0"
-            : "-translate-x-full",
+          open ? "translate-x-0" : "-translate-x-full",
         )}
       >
         {/* ---------------------------------------------------
@@ -313,13 +289,10 @@ export function AppShell({
           </div>
 
           <div className="min-w-0">
-            <p className="truncate text-sm font-bold tracking-tight">
-              MayDan EduRecord
-            </p>
+            <p className="truncate text-sm font-bold tracking-tight">MayDan EduRecord</p>
 
             <p className="truncate text-xs text-sidebar-foreground/70">
-              {school?.name ??
-                "Academic records"}
+              {school?.name ?? "Academic records"}
             </p>
           </div>
         </div>
@@ -335,9 +308,7 @@ export function AppShell({
             </p>
 
             <p className="mt-0.5 text-sm font-semibold text-sidebar-foreground">
-              {roleLabel(
-                currentRole,
-              )}
+              {roleLabel(currentRole)}
             </p>
           </div>
         </div>
@@ -347,36 +318,27 @@ export function AppShell({
             --------------------------------------------------- */}
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-          {visibleNav.map(
-            ({
-              to,
-              label,
-              icon: Icon,
-            }) => {
-              const active =
-                pathname === to;
+          {visibleNav.map(({ to, label, icon: Icon }) => {
+            const active = pathname === to;
 
-              return (
-                <Link
-                  key={to}
-                  to={to}
-                  onClick={() =>
-                    setOpen(false)
-                  }
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                    active
-                      ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-raised"
-                      : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
-                  )}
-                >
-                  <Icon className="size-4 shrink-0" />
+            return (
+              <Link
+                key={to}
+                to={to}
+                onClick={() => setOpen(false)}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                  active
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-raised"
+                    : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+                )}
+              >
+                <Icon className="size-4 shrink-0" />
 
-                  {label}
-                </Link>
-              );
-            },
-          )}
+                {label}
+              </Link>
+            );
+          })}
         </nav>
 
         {/* ---------------------------------------------------
@@ -386,30 +348,20 @@ export function AppShell({
         <div className="border-t border-sidebar-border/60 p-4">
           <div className="flex items-center gap-3">
             <div className="flex size-9 items-center justify-center rounded-full bg-sidebar-accent text-xs font-semibold text-sidebar-accent-foreground">
-              {initials(
-                profile?.fullName ??
-                  "MD",
-              )}
+              {initials(profile?.fullName ?? "MD")}
             </div>
 
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">
-                {profile?.fullName ||
-                  "Staff member"}
-              </p>
+              <p className="truncate text-sm font-medium">{profile?.fullName || "Staff member"}</p>
 
               <p className="truncate text-xs text-sidebar-foreground/70">
-                {roleLabel(
-                  currentRole,
-                )}
+                {roleLabel(currentRole)}
               </p>
             </div>
 
             <button
               type="button"
-              onClick={() =>
-                void signOut()
-              }
+              onClick={() => void signOut()}
               aria-label="Sign out"
               title="Sign out"
               className="rounded-md p-2 text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
@@ -427,9 +379,7 @@ export function AppShell({
       {open && (
         <div
           className="fixed inset-0 z-30 bg-foreground/40 lg:hidden"
-          onClick={() =>
-            setOpen(false)
-          }
+          onClick={() => setOpen(false)}
         />
       )}
 
@@ -460,26 +410,17 @@ export function AppShell({
               variant="ghost"
               size="icon"
               className="lg:hidden"
-              onClick={() =>
-                setOpen(
-                  (value) =>
-                    !value,
-                )
-              }
+              onClick={() => setOpen((value) => !value)}
               aria-label="Toggle navigation"
             >
               <Menu className="size-5" />
             </Button>
 
             <div className="min-w-0 flex-1">
-              <h1 className="truncate text-lg font-bold sm:text-xl">
-                {title}
-              </h1>
+              <h1 className="truncate text-lg font-bold sm:text-xl">{title}</h1>
 
               {description && (
-                <p className="truncate text-xs text-muted-foreground sm:text-sm">
-                  {description}
-                </p>
+                <p className="truncate text-xs text-muted-foreground sm:text-sm">{description}</p>
               )}
             </div>
 
@@ -487,6 +428,8 @@ export function AppShell({
             <div className="hidden sm:block">
               <SyncBadge />
             </div>
+
+            {(currentRole === "teacher" || currentRole === "head_teacher") && <NotificationBell />}
 
             {actions}
           </div>
@@ -501,9 +444,7 @@ export function AppShell({
             PAGE CONTENT
             --------------------------------------------------- */}
 
-        <div className="space-y-6 px-4 py-6 lg:px-8">
-          {children}
-        </div>
+        <div className="space-y-6 px-4 py-6 lg:px-8">{children}</div>
       </main>
     </div>
   );
@@ -527,24 +468,16 @@ export function StatCard({
   return (
     <div className="surface-card p-4">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          {label}
-        </p>
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
 
         <span className="flex size-8 items-center justify-center rounded-lg bg-secondary text-secondary-foreground">
           <Icon className="size-4" />
         </span>
       </div>
 
-      <p className="mt-3 text-2xl font-bold">
-        {value}
-      </p>
+      <p className="mt-3 text-2xl font-bold">{value}</p>
 
-      {hint && (
-        <p className="mt-1 text-xs text-muted-foreground">
-          {hint}
-        </p>
-      )}
+      {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
     </div>
   );
 }

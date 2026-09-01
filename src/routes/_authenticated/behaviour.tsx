@@ -50,8 +50,7 @@ function BehaviourPage() {
     if (classes.length && !classId) setClassId((classes[0] as { id: string }).id);
     if (!termId) {
       const current = terms.find((t) => (t as { is_current: boolean }).is_current) as
-        | { id: string }
-        | undefined;
+        { id: string } | undefined;
       if (current) setTermId(current.id);
       else if (terms.length) setTermId((terms[0] as { id: string }).id);
     }

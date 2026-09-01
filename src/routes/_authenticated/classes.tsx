@@ -5,13 +5,7 @@ import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { getSessionSafely } from "@/integrations/supabase/auth-helper";
-import {
-  logAudit,
-  useClasses,
-  useSubjects,
-  useStaff,
-  useStudents,
-} from "@/lib/data";
+import { logAudit, useClasses, useSubjects, useStaff, useStudents } from "@/lib/data";
 
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
@@ -38,8 +32,7 @@ export const Route = createFileRoute("/_authenticated/classes")({
       { title: "Classes & Academic Setup — MayDan EduRecord" },
       {
         name: "description",
-        content:
-          "Manage school classes, subjects, class teachers and subject teachers.",
+        content: "Manage school classes, subjects, class teachers and subject teachers.",
       },
     ],
   }),
@@ -113,8 +106,7 @@ function ClassesPage() {
   const [savingClass, setSavingClass] = useState(false);
   const [savingSubject, setSavingSubject] = useState(false);
   const [assigningClassTeacher, setAssigningClassTeacher] = useState(false);
-  const [assigningSubjectTeacher, setAssigningSubjectTeacher] =
-    useState(false);
+  const [assigningSubjectTeacher, setAssigningSubjectTeacher] = useState(false);
 
   const typedClasses = classes as ClassRow[];
   const typedSubjects = subjects as SubjectRow[];
@@ -127,9 +119,7 @@ function ClassesPage() {
   const teachers = useMemo(
     () =>
       typedStaff.filter(
-        (member) =>
-          member.roles?.includes("teacher") ||
-          member.roles?.includes("head_teacher"),
+        (member) => member.roles?.includes("teacher") || member.roles?.includes("head_teacher"),
       ),
     [typedStaff],
   );
@@ -190,9 +180,7 @@ function ClassesPage() {
         queryKey: ["classes"],
       });
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Unable to create class.",
-      );
+      toast.error(error instanceof Error ? error.message : "Unable to create class.");
     } finally {
       setSavingClass(false);
     }
@@ -229,11 +217,7 @@ function ClassesPage() {
         queryKey: ["subjects"],
       });
     } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Unable to create subject.",
-      );
+      toast.error(error instanceof Error ? error.message : "Unable to create subject.");
     } finally {
       setSavingSubject(false);
     }
@@ -257,18 +241,12 @@ function ClassesPage() {
 
       if (error) throw error;
 
-      const selectedTeacher = teachers.find(
-        (teacher) => teacher.id === classTeacher.teacherId,
-      );
+      const selectedTeacher = teachers.find((teacher) => teacher.id === classTeacher.teacherId);
 
-      const selectedClass = typedClasses.find(
-        (item) => item.id === classTeacher.classId,
-      );
+      const selectedClass = typedClasses.find((item) => item.id === classTeacher.classId);
 
       toast.success(
-        `${selectedTeacher?.full_name ?? "Teacher"} assigned to ${
-          selectedClass?.name ?? "class"
-        }.`,
+        `${selectedTeacher?.full_name ?? "Teacher"} assigned to ${selectedClass?.name ?? "class"}.`,
       );
 
       await logAudit(
@@ -286,11 +264,7 @@ function ClassesPage() {
         queryKey: ["classes"],
       });
     } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Unable to assign class teacher.",
-      );
+      toast.error(error instanceof Error ? error.message : "Unable to assign class teacher.");
     } finally {
       setAssigningClassTeacher(false);
     }
@@ -299,11 +273,7 @@ function ClassesPage() {
   async function assignSubjectTeacher(event: React.FormEvent) {
     event.preventDefault();
 
-    if (
-      !subjectTeacher.teacherId ||
-      !subjectTeacher.classId ||
-      !subjectTeacher.subjectId
-    ) {
+    if (!subjectTeacher.teacherId || !subjectTeacher.classId || !subjectTeacher.subjectId) {
       toast.error("Select a teacher, class and subject.");
       return;
     }
@@ -319,13 +289,9 @@ function ClassesPage() {
 
       if (error) throw error;
 
-      const selectedTeacher = teachers.find(
-        (teacher) => teacher.id === subjectTeacher.teacherId,
-      );
+      const selectedTeacher = teachers.find((teacher) => teacher.id === subjectTeacher.teacherId);
 
-      const selectedClass = typedClasses.find(
-        (item) => item.id === subjectTeacher.classId,
-      );
+      const selectedClass = typedClasses.find((item) => item.id === subjectTeacher.classId);
 
       const selectedSubject = typedSubjects.find(
         (subject) => subject.id === subjectTeacher.subjectId,
@@ -355,11 +321,7 @@ function ClassesPage() {
         queryKey: ["classes"],
       });
     } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Unable to assign subject teacher.",
-      );
+      toast.error(error instanceof Error ? error.message : "Unable to assign subject teacher.");
     } finally {
       setAssigningSubjectTeacher(false);
     }
@@ -381,9 +343,7 @@ function ClassesPage() {
           <section className="surface-card p-5">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <h2 className="text-base font-semibold">
-                  School Classes
-                </h2>
+                <h2 className="text-base font-semibold">School Classes</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
                   Create and manage the school's class structure.
                 </p>
@@ -453,31 +413,22 @@ function ClassesPage() {
 
             <div className="mt-6 space-y-2">
               {classesLoading && (
-                <p className="text-sm text-muted-foreground">
-                  Loading classes...
-                </p>
+                <p className="text-sm text-muted-foreground">Loading classes...</p>
               )}
 
               {!classesLoading && typedClasses.length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                  No classes have been created yet.
-                </p>
+                <p className="text-sm text-muted-foreground">No classes have been created yet.</p>
               )}
 
               {typedClasses.map((item) => (
-                <div
-                  key={item.id}
-                  className="rounded-lg border border-border p-3"
-                >
+                <div key={item.id} className="rounded-lg border border-border p-3">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="font-medium">{item.name}</p>
 
                       <p className="text-xs text-muted-foreground">
                         {item.level ?? "No level"}
-                        {item.section
-                          ? ` • Section ${item.section}`
-                          : ""}
+                        {item.section ? ` • Section ${item.section}` : ""}
                       </p>
                     </div>
 
@@ -487,13 +438,9 @@ function ClassesPage() {
                   </div>
 
                   <div className="mt-2 text-xs">
-                    <span className="text-muted-foreground">
-                      Class teacher:{" "}
-                    </span>
+                    <span className="text-muted-foreground">Class teacher: </span>
 
-                    <span className="font-medium">
-                      {teacherName(item.class_teacher_id)}
-                    </span>
+                    <span className="font-medium">{teacherName(item.class_teacher_id)}</span>
                   </div>
                 </div>
               ))}
@@ -505,9 +452,7 @@ function ClassesPage() {
           <section className="surface-card p-5">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <h2 className="text-base font-semibold">
-                  School Subjects
-                </h2>
+                <h2 className="text-base font-semibold">School Subjects</h2>
 
                 <p className="mt-1 text-sm text-muted-foreground">
                   Maintain the subjects offered by the school.
@@ -521,9 +466,7 @@ function ClassesPage() {
 
             <form onSubmit={addSubject} className="mt-5 grid gap-3">
               <div className="space-y-2">
-                <Label htmlFor="subject-name">
-                  Subject name
-                </Label>
+                <Label htmlFor="subject-name">Subject name</Label>
 
                 <Input
                   id="subject-name"
@@ -540,9 +483,7 @@ function ClassesPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="subject-code">
-                  Subject code
-                </Label>
+                <Label htmlFor="subject-code">Subject code</Label>
 
                 <Input
                   id="subject-code"
@@ -564,15 +505,11 @@ function ClassesPage() {
 
             <div className="mt-6 space-y-2">
               {subjectsLoading && (
-                <p className="text-sm text-muted-foreground">
-                  Loading subjects...
-                </p>
+                <p className="text-sm text-muted-foreground">Loading subjects...</p>
               )}
 
               {!subjectsLoading && typedSubjects.length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                  No subjects have been created yet.
-                </p>
+                <p className="text-sm text-muted-foreground">No subjects have been created yet.</p>
               )}
 
               {typedSubjects.map((subject) => (
@@ -580,13 +517,9 @@ function ClassesPage() {
                   key={subject.id}
                   className="flex items-center justify-between rounded-lg border border-border p-3"
                 >
-                  <span className="font-medium">
-                    {subject.name}
-                  </span>
+                  <span className="font-medium">{subject.name}</span>
 
-                  <span className="text-xs text-muted-foreground">
-                    {subject.code ?? "No code"}
-                  </span>
+                  <span className="text-xs text-muted-foreground">{subject.code ?? "No code"}</span>
                 </div>
               ))}
             </div>
@@ -599,24 +532,16 @@ function ClassesPage() {
 
         <section className="surface-card p-5">
           <div>
-            <h2 className="text-base font-semibold">
-              Class Teacher Allocation
-            </h2>
+            <h2 className="text-base font-semibold">Class Teacher Allocation</h2>
 
             <p className="mt-1 text-sm text-muted-foreground">
-              Assign an approved teacher to become the class teacher
-              for a particular class.
+              Assign an approved teacher to become the class teacher for a particular class.
             </p>
           </div>
 
-          <form
-            onSubmit={assignClassTeacher}
-            className="mt-5 grid gap-4 md:grid-cols-3"
-          >
+          <form onSubmit={assignClassTeacher} className="mt-5 grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
-              <Label htmlFor="class-teacher">
-                Teacher
-              </Label>
+              <Label htmlFor="class-teacher">Teacher</Label>
 
               <select
                 id="class-teacher"
@@ -629,9 +554,7 @@ function ClassesPage() {
                   })
                 }
               >
-                <option value="">
-                  Select teacher
-                </option>
+                <option value="">Select teacher</option>
 
                 {teachers.map((teacher) => (
                   <option key={teacher.id} value={teacher.id}>
@@ -642,9 +565,7 @@ function ClassesPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="class-to-assign">
-                Class
-              </Label>
+              <Label htmlFor="class-to-assign">Class</Label>
 
               <select
                 id="class-to-assign"
@@ -657,9 +578,7 @@ function ClassesPage() {
                   })
                 }
               >
-                <option value="">
-                  Select class
-                </option>
+                <option value="">Select class</option>
 
                 {typedClasses.map((item) => (
                   <option key={item.id} value={item.id}>
@@ -670,14 +589,8 @@ function ClassesPage() {
             </div>
 
             <div className="flex items-end">
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={assigningClassTeacher}
-              >
-                {assigningClassTeacher
-                  ? "Assigning..."
-                  : "Assign class teacher"}
+              <Button type="submit" className="w-full" disabled={assigningClassTeacher}>
+                {assigningClassTeacher ? "Assigning..." : "Assign class teacher"}
               </Button>
             </div>
           </form>
@@ -689,24 +602,16 @@ function ClassesPage() {
 
         <section className="surface-card p-5">
           <div>
-            <h2 className="text-base font-semibold">
-              Subject Teacher Allocation
-            </h2>
+            <h2 className="text-base font-semibold">Subject Teacher Allocation</h2>
 
             <p className="mt-1 text-sm text-muted-foreground">
-              Assign a teacher to teach a specific subject in a
-              specific class.
+              Assign a teacher to teach a specific subject in a specific class.
             </p>
           </div>
 
-          <form
-            onSubmit={assignSubjectTeacher}
-            className="mt-5 grid gap-4 md:grid-cols-4"
-          >
+          <form onSubmit={assignSubjectTeacher} className="mt-5 grid gap-4 md:grid-cols-4">
             <div className="space-y-2">
-              <Label htmlFor="subject-teacher">
-                Teacher
-              </Label>
+              <Label htmlFor="subject-teacher">Teacher</Label>
 
               <select
                 id="subject-teacher"
@@ -719,9 +624,7 @@ function ClassesPage() {
                   })
                 }
               >
-                <option value="">
-                  Select teacher
-                </option>
+                <option value="">Select teacher</option>
 
                 {teachers.map((teacher) => (
                   <option key={teacher.id} value={teacher.id}>
@@ -732,9 +635,7 @@ function ClassesPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="subject-class">
-                Class
-              </Label>
+              <Label htmlFor="subject-class">Class</Label>
 
               <select
                 id="subject-class"
@@ -747,9 +648,7 @@ function ClassesPage() {
                   })
                 }
               >
-                <option value="">
-                  Select class
-                </option>
+                <option value="">Select class</option>
 
                 {typedClasses.map((item) => (
                   <option key={item.id} value={item.id}>
@@ -760,9 +659,7 @@ function ClassesPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="subject">
-                Subject
-              </Label>
+              <Label htmlFor="subject">Subject</Label>
 
               <select
                 id="subject"
@@ -775,15 +672,10 @@ function ClassesPage() {
                   })
                 }
               >
-                <option value="">
-                  Select subject
-                </option>
+                <option value="">Select subject</option>
 
                 {typedSubjects.map((subject) => (
-                  <option
-                    key={subject.id}
-                    value={subject.id}
-                  >
+                  <option key={subject.id} value={subject.id}>
                     {subject.name}
                   </option>
                 ))}
@@ -791,14 +683,8 @@ function ClassesPage() {
             </div>
 
             <div className="flex items-end">
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={assigningSubjectTeacher}
-              >
-                {assigningSubjectTeacher
-                  ? "Assigning..."
-                  : "Assign subject teacher"}
+              <Button type="submit" className="w-full" disabled={assigningSubjectTeacher}>
+                {assigningSubjectTeacher ? "Assigning..." : "Assign subject teacher"}
               </Button>
             </div>
           </form>
@@ -809,36 +695,26 @@ function ClassesPage() {
            ============================================================ */}
 
         <section className="rounded-xl border border-border bg-muted/30 p-5">
-          <h2 className="text-sm font-semibold">
-            School administration workflow
-          </h2>
+          <h2 className="text-sm font-semibold">School administration workflow</h2>
 
           <div className="mt-3 grid gap-3 text-sm text-muted-foreground md:grid-cols-4">
             <div>
-              <strong className="text-foreground">
-                1. Admin
-              </strong>
+              <strong className="text-foreground">1. Admin</strong>
               <p>Create classes and subjects.</p>
             </div>
 
             <div>
-              <strong className="text-foreground">
-                2. Admin
-              </strong>
+              <strong className="text-foreground">2. Admin</strong>
               <p>Approve teachers and allocate them.</p>
             </div>
 
             <div>
-              <strong className="text-foreground">
-                3. Admin
-              </strong>
+              <strong className="text-foreground">3. Admin</strong>
               <p>Admit students and place them in classes.</p>
             </div>
 
             <div>
-              <strong className="text-foreground">
-                4. Teacher
-              </strong>
+              <strong className="text-foreground">4. Teacher</strong>
               <p>Records academic and attendance data only for assigned classes.</p>
             </div>
           </div>

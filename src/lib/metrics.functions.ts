@@ -29,7 +29,9 @@ export const recordMetricSamples = createServerFn({ method: "POST" })
 
 export const getPerformanceSummary = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) => z.object({ windowMinutes: z.number().int().min(5).max(1440) }).parse(input))
+  .inputValidator((input) =>
+    z.object({ windowMinutes: z.number().int().min(5).max(1440) }).parse(input),
+  )
   .handler(async ({ data, context }) => {
     const { data: isManager } = await context.supabase.rpc("is_manager", {
       _user_id: context.userId,

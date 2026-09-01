@@ -7,9 +7,7 @@ export default defineConfig({
 
   vite: {
     server: {
-      allowedHosts: [
-        "remarkable-want-pennsylvania-arthur.trycloudflare.com",
-      ],
+      allowedHosts: ["remarkable-want-pennsylvania-arthur.trycloudflare.com"],
     },
   },
 });

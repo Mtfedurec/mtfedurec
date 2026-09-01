@@ -182,9 +182,7 @@ function histogramLines(
       lines.push(`${name}_bucket{${base},le="${bucket}"} ${cumulative}`);
     }
     lines.push(`${name}_bucket{${base},le="+Inf"} ${durationsSec.length}`);
-    lines.push(
-      `${name}_sum{${base}} ${durationsSec.reduce((s, d) => s + d, 0).toFixed(6)}`,
-    );
+    lines.push(`${name}_sum{${base}} ${durationsSec.reduce((s, d) => s + d, 0).toFixed(6)}`);
     lines.push(`${name}_count{${base}} ${durationsSec.length}`);
   }
   return lines;

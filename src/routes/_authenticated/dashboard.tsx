@@ -40,8 +40,7 @@ function Dashboard() {
   const { data: students = [] } = useStudents();
   const { data: terms = [] } = useTerms();
   const currentTerm = terms.find((t) => (t as { is_current: boolean }).is_current) as
-    | { id: string; name: string; academic_sessions?: { name: string } | null }
-    | undefined;
+    { id: string; name: string; academic_sessions?: { name: string } | null } | undefined;
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -108,7 +107,11 @@ function Dashboard() {
         </h2>
         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {QUICK.map(({ to, label, icon: Icon }) => (
-            <Link key={to} to={to} className="surface-card flex items-center gap-3 p-4 transition-shadow hover:shadow-raised">
+            <Link
+              key={to}
+              to={to}
+              className="surface-card flex items-center gap-3 p-4 transition-shadow hover:shadow-raised"
+            >
               <span className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                 <Icon className="size-4" />
               </span>

@@ -23,8 +23,7 @@ export const Route = createFileRoute("/auth")({
       { title: "Sign in — MayDan EduRecord" },
       {
         name: "description",
-        content:
-          "Secure administrator and teacher access to MayDan EduRecord.",
+        content: "Secure administrator and teacher access to MayDan EduRecord.",
       },
       {
         property: "og:title",
@@ -32,8 +31,7 @@ export const Route = createFileRoute("/auth")({
       },
       {
         property: "og:description",
-        content:
-          "Secure administrator and teacher access to MayDan EduRecord.",
+        content: "Secure administrator and teacher access to MayDan EduRecord.",
       },
     ],
   }),
@@ -131,9 +129,7 @@ function AuthPage() {
 
     const isAdmin = userRoles.includes("admin");
 
-    const isTeacher =
-      userRoles.includes("teacher") ||
-      userRoles.includes("head_teacher");
+    const isTeacher = userRoles.includes("teacher") || userRoles.includes("head_teacher");
 
     if (loginRole === "admin" && !isAdmin) {
       await supabase.auth.signOut();
@@ -170,28 +166,23 @@ function AuthPage() {
     setBusy(true);
 
     try {
-      const { data, error } =
-        await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password,
-        });
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
 
       if (error) {
         throw error;
       }
 
       if (!data.user) {
-        throw new Error(
-          "Login succeeded but no user account was returned.",
-        );
+        throw new Error("Login succeeded but no user account was returned.");
       }
 
       await verifyRole(data.user.id, selectedRole);
 
       toast.success(
-        selectedRole === "admin"
-          ? "Administrator login successful."
-          : "Teacher login successful.",
+        selectedRole === "admin" ? "Administrator login successful." : "Teacher login successful.",
       );
 
       navigate({
@@ -255,9 +246,7 @@ function AuthPage() {
       }
 
       if (!data.user) {
-        throw new Error(
-          "Account creation did not return a user account.",
-        );
+        throw new Error("Account creation did not return a user account.");
       }
 
       if (data.session) {
@@ -273,16 +262,17 @@ function AuthPage() {
         return;
       }
 
-      toast.success(
-        "Account created. Check your email to confirm your account before signing in.",
-      );
+      toast.success("Account created. Check your email to confirm your account before signing in.");
 
       setView("login");
       setPassword("");
       setConfirmPassword("");
     } catch (error) {
       toast.error(
-        authErrorMessage(error, "Unable to create the account. Please check your details and try again."),
+        authErrorMessage(
+          error,
+          "Unable to create the account. Please check your details and try again.",
+        ),
       );
     } finally {
       setBusy(false);
@@ -302,20 +292,15 @@ function AuthPage() {
     try {
       const redirectTo = `${window.location.origin}/auth`;
 
-      const { error } = await supabase.auth.resetPasswordForEmail(
-        email.trim(),
-        {
-          redirectTo,
-        },
-      );
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo,
+      });
 
       if (error) {
         throw error;
       }
 
-      toast.success(
-        "Password reset instructions have been sent to your email.",
-      );
+      toast.success("Password reset instructions have been sent to your email.");
 
       setView("login");
       setPassword("");
@@ -347,7 +332,9 @@ function AuthPage() {
       setSelectedRole(null);
       setView("roles");
     } catch (error) {
-      toast.error(authErrorMessage(error, "This reset link is invalid or expired. Request a new one."));
+      toast.error(
+        authErrorMessage(error, "This reset link is invalid or expired. Request a new one."),
+      );
     } finally {
       setBusy(false);
     }
@@ -367,9 +354,7 @@ function AuthPage() {
       });
 
       if (result.error) {
-        throw new Error(
-          "Google sign-in failed. Try again or use your email and password.",
-        );
+        throw new Error("Google sign-in failed. Try again or use your email and password.");
       }
 
       if (result.redirected) {
@@ -381,9 +366,7 @@ function AuthPage() {
       } = await supabase.auth.getUser();
 
       if (!user) {
-        throw new Error(
-          "Unable to identify your account after Google login.",
-        );
+        throw new Error("Unable to identify your account after Google login.");
       }
 
       await verifyRole(user.id, selectedRole);
@@ -395,7 +378,9 @@ function AuthPage() {
         replace: true,
       });
     } catch (error) {
-      toast.error(authErrorMessage(error, "Google sign-in failed. Try again or use your email and password."));
+      toast.error(
+        authErrorMessage(error, "Google sign-in failed. Try again or use your email and password."),
+      );
 
       setBusy(false);
     }
@@ -406,17 +391,12 @@ function AuthPage() {
       <div className="w-full max-w-md">
         {/* BRAND */}
 
-        <Link
-          to="/"
-          className="mb-6 flex items-center justify-center gap-3"
-        >
+        <Link to="/" className="mb-6 flex items-center justify-center gap-3">
           <span className="brand-gradient flex size-10 items-center justify-center rounded-xl text-primary-foreground">
             <GraduationCap className="size-5" />
           </span>
 
-          <span className="text-base font-bold">
-            MayDan EduRecord
-          </span>
+          <span className="text-base font-bold">MayDan EduRecord</span>
         </Link>
 
         <div className="surface-card p-6">
@@ -427,9 +407,7 @@ function AuthPage() {
           {view === "roles" && (
             <>
               <div className="text-center">
-                <h1 className="text-xl font-bold">
-                  Welcome to MayDan EduRecord
-                </h1>
+                <h1 className="text-xl font-bold">Welcome to MayDan EduRecord</h1>
 
                 <p className="mt-2 text-sm text-muted-foreground">
                   Select the type of account you are using.
@@ -450,13 +428,10 @@ function AuthPage() {
                     </span>
 
                     <div>
-                      <h2 className="font-semibold">
-                        Administrator
-                      </h2>
+                      <h2 className="font-semibold">Administrator</h2>
 
                       <p className="mt-1 text-sm text-muted-foreground">
-                        School management, staff, students,
-                        classes, subjects, reports and settings.
+                        School management, staff, students, classes, subjects, reports and settings.
                       </p>
                     </div>
                   </div>
@@ -475,13 +450,10 @@ function AuthPage() {
                     </span>
 
                     <div>
-                      <h2 className="font-semibold">
-                        Teacher
-                      </h2>
+                      <h2 className="font-semibold">Teacher</h2>
 
                       <p className="mt-1 text-sm text-muted-foreground">
-                        Attendance, assessments, behaviour,
-                        students and assigned classes.
+                        Attendance, assessments, behaviour, students and assigned classes.
                       </p>
                     </div>
                   </div>
@@ -489,8 +461,7 @@ function AuthPage() {
               </div>
 
               <p className="mt-6 text-center text-xs text-muted-foreground">
-                Your account permissions are controlled by the
-                school administrator.
+                Your account permissions are controlled by the school administrator.
               </p>
             </>
           )}
@@ -521,9 +492,7 @@ function AuthPage() {
 
                 <div>
                   <h1 className="text-xl font-bold">
-                    {selectedRole === "admin"
-                      ? "Administrator Login"
-                      : "Teacher Login"}
+                    {selectedRole === "admin" ? "Administrator Login" : "Teacher Login"}
                   </h1>
 
                   <p className="text-sm text-muted-foreground">
@@ -534,14 +503,9 @@ function AuthPage() {
                 </div>
               </div>
 
-              <form
-                onSubmit={submitLogin}
-                className="mt-6 space-y-4"
-              >
+              <form onSubmit={submitLogin} className="mt-6 space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="login-email">
-                    Email address
-                  </Label>
+                  <Label htmlFor="login-email">Email address</Label>
 
                   <Input
                     id="login-email"
@@ -549,22 +513,16 @@ function AuthPage() {
                     required
                     autoComplete="email"
                     value={email}
-                    onChange={(event) =>
-                      setEmail(event.target.value)
-                    }
+                    onChange={(event) => setEmail(event.target.value)}
                     placeholder={
-                      selectedRole === "admin"
-                        ? "admin@school.com"
-                        : "teacher@school.com"
+                      selectedRole === "admin" ? "admin@school.com" : "teacher@school.com"
                     }
                   />
                 </div>
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="login-password">
-                      Password
-                    </Label>
+                    <Label htmlFor="login-password">Password</Label>
 
                     <button
                       type="button"
@@ -582,24 +540,14 @@ function AuthPage() {
                     minLength={6}
                     autoComplete="current-password"
                     value={password}
-                    onChange={(event) =>
-                      setPassword(event.target.value)
-                    }
+                    onChange={(event) => setPassword(event.target.value)}
                   />
                 </div>
 
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={busy}
-                >
-                  {busy && (
-                    <Loader2 className="mr-2 size-4 animate-spin" />
-                  )}
+                <Button type="submit" className="w-full" disabled={busy}>
+                  {busy && <Loader2 className="mr-2 size-4 animate-spin" />}
 
-                  {selectedRole === "admin"
-                    ? "Sign in as Administrator"
-                    : "Sign in as Teacher"}
+                  {selectedRole === "admin" ? "Sign in as Administrator" : "Sign in as Teacher"}
                 </Button>
               </form>
 
@@ -615,10 +563,7 @@ function AuthPage() {
                 disabled={busy}
                 onClick={() => void google()}
               >
-                {busy && (
-                  <Loader2 className="mr-2 size-4 animate-spin" />
-                )}
-
+                {busy && <Loader2 className="mr-2 size-4 animate-spin" />}
                 Continue with Google
               </Button>
 
@@ -634,12 +579,9 @@ function AuthPage() {
               </button>
 
               <div className="mt-6 rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
-                <strong className="text-foreground">
-                  Important:
-                </strong>{" "}
-                Choosing a login type does not change your
-                permissions. MayDan checks your actual role in
-                the school database after authentication.
+                <strong className="text-foreground">Important:</strong> Choosing a login type does
+                not change your permissions. MayDan checks your actual role in the school database
+                after authentication.
               </div>
             </>
           )}
@@ -668,24 +610,15 @@ function AuthPage() {
                 </span>
 
                 <div>
-                  <h1 className="text-xl font-bold">
-                    Create Account
-                  </h1>
+                  <h1 className="text-xl font-bold">Create Account</h1>
 
-                  <p className="text-sm text-muted-foreground">
-                    Create your teacher account.
-                  </p>
+                  <p className="text-sm text-muted-foreground">Create your teacher account.</p>
                 </div>
               </div>
 
-              <form
-                onSubmit={createAccount}
-                className="mt-6 space-y-4"
-              >
+              <form onSubmit={createAccount} className="mt-6 space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="signup-name">
-                    Full name
-                  </Label>
+                  <Label htmlFor="signup-name">Full name</Label>
 
                   <Input
                     id="signup-name"
@@ -693,17 +626,13 @@ function AuthPage() {
                     required
                     autoComplete="name"
                     value={fullName}
-                    onChange={(event) =>
-                      setFullName(event.target.value)
-                    }
+                    onChange={(event) => setFullName(event.target.value)}
                     placeholder="Your full name"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="signup-email">
-                    Email address
-                  </Label>
+                  <Label htmlFor="signup-email">Email address</Label>
 
                   <Input
                     id="signup-email"
@@ -711,17 +640,13 @@ function AuthPage() {
                     required
                     autoComplete="email"
                     value={email}
-                    onChange={(event) =>
-                      setEmail(event.target.value)
-                    }
+                    onChange={(event) => setEmail(event.target.value)}
                     placeholder="you@school.com"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="signup-password">
-                    Password
-                  </Label>
+                  <Label htmlFor="signup-password">Password</Label>
 
                   <Input
                     id="signup-password"
@@ -730,17 +655,13 @@ function AuthPage() {
                     minLength={6}
                     autoComplete="new-password"
                     value={password}
-                    onChange={(event) =>
-                      setPassword(event.target.value)
-                    }
+                    onChange={(event) => setPassword(event.target.value)}
                     placeholder="At least 6 characters"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="signup-confirm-password">
-                    Confirm password
-                  </Label>
+                  <Label htmlFor="signup-confirm-password">Confirm password</Label>
 
                   <Input
                     id="signup-confirm-password"
@@ -749,32 +670,21 @@ function AuthPage() {
                     minLength={6}
                     autoComplete="new-password"
                     value={confirmPassword}
-                    onChange={(event) =>
-                      setConfirmPassword(event.target.value)
-                    }
+                    onChange={(event) => setConfirmPassword(event.target.value)}
                     placeholder="Enter the password again"
                   />
                 </div>
 
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={busy}
-                >
-                  {busy && (
-                    <Loader2 className="mr-2 size-4 animate-spin" />
-                  )}
-
+                <Button type="submit" className="w-full" disabled={busy}>
+                  {busy && <Loader2 className="mr-2 size-4 animate-spin" />}
                   Create Teacher Account
                 </Button>
               </form>
 
               <div className="mt-5 rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
-                <strong className="text-foreground">
-                  Account role:
-                </strong>{" "}
-                This account will be created as <strong>Teacher</strong>. Administrator and head
-                teacher roles can only be assigned by school management.
+                <strong className="text-foreground">Account role:</strong> This account will be
+                created as <strong>Teacher</strong>. Administrator and head teacher roles can only
+                be assigned by school management.
               </div>
             </>
           )}
@@ -803,25 +713,17 @@ function AuthPage() {
                 </span>
 
                 <div>
-                  <h1 className="text-xl font-bold">
-                    Forgot Password?
-                  </h1>
+                  <h1 className="text-xl font-bold">Forgot Password?</h1>
 
                   <p className="text-sm text-muted-foreground">
-                    We will send a password reset link to your
-                    email.
+                    We will send a password reset link to your email.
                   </p>
                 </div>
               </div>
 
-              <form
-                onSubmit={resetPassword}
-                className="mt-6 space-y-4"
-              >
+              <form onSubmit={resetPassword} className="mt-6 space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="forgot-email">
-                    Email address
-                  </Label>
+                  <Label htmlFor="forgot-email">Email address</Label>
 
                   <Input
                     id="forgot-email"
@@ -829,29 +731,19 @@ function AuthPage() {
                     required
                     autoComplete="email"
                     value={email}
-                    onChange={(event) =>
-                      setEmail(event.target.value)
-                    }
+                    onChange={(event) => setEmail(event.target.value)}
                     placeholder="you@school.com"
                   />
                 </div>
 
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={busy}
-                >
-                  {busy && (
-                    <Loader2 className="mr-2 size-4 animate-spin" />
-                  )}
-
+                <Button type="submit" className="w-full" disabled={busy}>
+                  {busy && <Loader2 className="mr-2 size-4 animate-spin" />}
                   Send Reset Link
                 </Button>
               </form>
 
               <p className="mt-5 text-center text-xs text-muted-foreground">
-                Check your inbox and spam folder after
-                requesting the reset link.
+                Check your inbox and spam folder after requesting the reset link.
               </p>
             </>
           )}
@@ -859,7 +751,9 @@ function AuthPage() {
           {view === "reset" && (
             <form onSubmit={updatePassword} className="space-y-4">
               <h1 className="text-xl font-bold">Set a new password</h1>
-              <p className="text-sm text-muted-foreground">Choose a new password for your account.</p>
+              <p className="text-sm text-muted-foreground">
+                Choose a new password for your account.
+              </p>
               <Input
                 type="password"
                 required

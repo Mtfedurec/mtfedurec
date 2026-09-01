@@ -86,7 +86,10 @@ function StudentsPage() {
 
   return (
     <AppShell title="Students" description={`${students.length} active record(s)`}>
-      <form onSubmit={addStudent} className="surface-card grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3">
+      <form
+        onSubmit={addStudent}
+        className="surface-card grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3"
+      >
         <div className="space-y-2">
           <Label htmlFor="full_name">Full name</Label>
           <Input

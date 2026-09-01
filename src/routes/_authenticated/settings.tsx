@@ -65,11 +65,11 @@ function SettingsPage() {
     if (!school) return;
     const s = school as Record<string, string | null>;
     setForm({
-      name: s['name'] ?? "",
-      motto: s['motto'] ?? "",
-      address: s['address'] ?? "",
-      phone: s['phone'] ?? "",
-      email: s['email'] ?? "",
+      name: s["name"] ?? "",
+      motto: s["motto"] ?? "",
+      address: s["address"] ?? "",
+      phone: s["phone"] ?? "",
+      email: s["email"] ?? "",
     });
   }, [school]);
 
@@ -89,10 +89,7 @@ function SettingsPage() {
   }
 
   async function setRole(userId: string, role: AppRole) {
-    const { error: deleteError } = await supabase
-      .from("user_roles")
-      .delete()
-      .eq("user_id", userId);
+    const { error: deleteError } = await supabase.from("user_roles").delete().eq("user_id", userId);
 
     if (deleteError) {
       toast.error(deleteError.message);

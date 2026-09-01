@@ -10,6 +10,7 @@ import {
   FileClock,
   Loader2,
   RefreshCw,
+  ShieldCheck,
 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -17,9 +18,19 @@ import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 import {
   logAudit,
+  useAssessmentControl,
   useClasses,
   useComponents,
   useStudents,
@@ -151,10 +162,7 @@ const DEFAULT_GRADE_SCALE: GradeBand[] = [
   },
 ];
 
-function findGrade(
-  total: number,
-  bands: GradeBand[],
-): GradeBand | null {
+function findGrade(total: number, bands: GradeBand[]): GradeBand | null {
   const numericTotal = Number(total);
 
   if (!Number.isFinite(numericTotal)) {
@@ -166,17 +174,12 @@ function findGrade(
       const minimum = Number(band.min_score);
       const maximum = Number(band.max_score);
 
-      return (
-        numericTotal >= minimum &&
-        numericTotal <= maximum
-      );
+      return numericTotal >= minimum && numericTotal <= maximum;
     }) ?? null
   );
 }
 
-function formatDate(
-  value: string | null | undefined,
-) {
+function formatDate(value: string | null | undefined) {
   if (!value) {
     return "—";
   }
@@ -203,20 +206,11 @@ function AssessmentPage() {
    * ---------------------------------------------------------
    */
 
-  const {
-    data: classes = [],
-    isLoading: classesLoading,
-  } = useClasses();
+  const { data: classes = [], isLoading: classesLoading } = useClasses();
 
-  const {
-    data: subjects = [],
-    isLoading: subjectsLoading,
-  } = useSubjects();
+  const { data: subjects = [], isLoading: subjectsLoading } = useSubjects();
 
-  const {
-    data: components = [],
-    isLoading: componentsLoading,
-  } = useComponents();
+  const { data: components = [], isLoading: componentsLoading } = useComponents();
 
   const comps = components as Component[];
 
@@ -236,9 +230,7 @@ function AssessmentPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("terms")
-        .select(
-          "id, session_id, name, start_date, end_date, is_current",
-        )
+        .select("id, session_id, name, start_date, end_date, is_current")
         .order("start_date", {
           ascending: true,
         });
@@ -267,9 +259,7 @@ function AssessmentPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("grade_scale")
-        .select(
-          "id, min_score, max_score, grade, remark",
-        )
+        .select("id, min_score, max_score, grade, remark")
         .order("min_score", {
           ascending: false,
         });
@@ -282,10 +272,7 @@ function AssessmentPage() {
     },
   });
 
-  const bands =
-    databaseBands.length > 0
-      ? databaseBands
-      : DEFAULT_GRADE_SCALE;
+  const bands = databaseBands.length > 0 ? databaseBands : DEFAULT_GRADE_SCALE;
 
   /*
    * ---------------------------------------------------------
@@ -296,9 +283,7 @@ function AssessmentPage() {
    * records = teacher's previous records
    */
 
-  const [pageMode, setPageMode] = useState<
-    "entry" | "records"
-  >("entry");
+  const [pageMode, setPageMode] = useState<"entry" | "records">("entry");
 
   /*
    * ---------------------------------------------------------
@@ -312,14 +297,27 @@ function AssessmentPage() {
 
   /*
    * ---------------------------------------------------------
-   * STUDENTS
+   * ASSESSMENT CONTROL
    * ---------------------------------------------------------
    */
 
   const {
-    data: studentRows = [],
-    isLoading: studentsLoading,
-  } = useStudents(classId || undefined);
+    data: assessmentControl,
+    isLoading: controlLoading,
+    isError: controlError,
+    error: controlQueryError,
+  } = useAssessmentControl(termId || undefined);
+
+  const assessmentStatus = assessmentControl?.status ?? "open";
+  const assessmentEntryAllowed = assessmentStatus === "open";
+
+  /*
+   * ---------------------------------------------------------
+   * STUDENTS
+   * ---------------------------------------------------------
+   */
+
+  const { data: studentRows = [], isLoading: studentsLoading } = useStudents(classId || undefined);
 
   const students = studentRows as Student[];
 
@@ -329,11 +327,9 @@ function AssessmentPage() {
    * ---------------------------------------------------------
    */
 
-  const [values, setValues] =
-    useState<Record<string, string>>({});
+  const [values, setValues] = useState<Record<string, string>>({});
 
-  const [saving, setSaving] =
-    useState(false);
+  const [saving, setSaving] = useState(false);
 
   const { save, online, pending } = useSync();
 
@@ -353,16 +349,10 @@ function AssessmentPage() {
    * This is important for offline score entry.
    */
 
-  const {
-    data: currentUser,
-    isLoading: userLoading,
-  } = useQuery({
+  const { data: currentUser, isLoading: userLoading } = useQuery({
     queryKey: ["assessment-current-user"],
     queryFn: async () => {
-      const {
-        data,
-        error,
-      } = await supabase.auth.getSession();
+      const { data, error } = await supabase.auth.getSession();
 
       if (error) {
         throw error;
@@ -388,28 +378,19 @@ function AssessmentPage() {
     error: recordsQueryError,
     refetch: refetchRecords,
   } = useQuery<AssessmentScore[], Error>({
-    queryKey: [
-      "my-assessment-scores",
-      currentUser?.id,
-    ],
+    queryKey: ["my-assessment-scores", currentUser?.id],
     enabled: Boolean(currentUser?.id) && online,
     queryFn: async () => {
       if (!currentUser?.id) {
         return [];
       }
 
-      const {
-        data,
-        error,
-      } = await supabase
+      const { data, error } = await supabase
         .from("assessment_scores")
         .select(
           "id, student_id, subject_id, component_id, term_id, score, state, recorded_by, created_at, updated_at",
         )
-        .eq(
-          "recorded_by",
-          currentUser.id,
-        )
+        .eq("recorded_by", currentUser.id)
         .order("updated_at", {
           ascending: false,
         });
@@ -429,35 +410,20 @@ function AssessmentPage() {
    */
 
   useEffect(() => {
-    if (
-      classes.length > 0 &&
-      !classId
-    ) {
-      const firstClass =
-        classes[0] as SelectItem;
+    if (classes.length > 0 && !classId) {
+      const firstClass = classes[0] as SelectItem;
 
       setClassId(firstClass.id);
     }
 
-    if (
-      subjects.length > 0 &&
-      !subjectId
-    ) {
-      const firstSubject =
-        subjects[0] as SelectItem;
+    if (subjects.length > 0 && !subjectId) {
+      const firstSubject = subjects[0] as SelectItem;
 
       setSubjectId(firstSubject.id);
     }
 
-    if (
-      terms.length > 0 &&
-      !termId
-    ) {
-      const currentTerm =
-        terms.find(
-          (term) =>
-            term.is_current === true,
-        );
+    if (terms.length > 0 && !termId) {
+      const currentTerm = terms.find((term) => term.is_current === true);
 
       if (currentTerm) {
         setTermId(currentTerm.id);
@@ -465,14 +431,7 @@ function AssessmentPage() {
         setTermId(terms[0].id);
       }
     }
-  }, [
-    classes,
-    subjects,
-    terms,
-    classId,
-    subjectId,
-    termId,
-  ]);
+  }, [classes, subjects, terms, classId, subjectId, termId]);
 
   /*
    * ---------------------------------------------------------
@@ -480,9 +439,7 @@ function AssessmentPage() {
    * ---------------------------------------------------------
    */
 
-  async function loadRecord(
-    record: AssessmentRecord,
-  ) {
+  async function loadRecord(record: AssessmentRecord) {
     setPageMode("entry");
 
     setClassId(record.classId);
@@ -491,43 +448,22 @@ function AssessmentPage() {
 
     setValues({});
 
-    const {
-      data,
-      error,
-    } = await supabase
+    const { data, error } = await supabase
       .from("assessment_scores")
-      .select(
-        "student_id, subject_id, component_id, term_id, score, state, recorded_by",
-      )
-      .eq(
-        "recorded_by",
-        currentUser?.id ?? "",
-      )
-      .eq(
-        "subject_id",
-        record.subjectId,
-      )
-      .eq(
-        "term_id",
-        record.termId,
-      );
+      .select("student_id, subject_id, component_id, term_id, score, state, recorded_by")
+      .eq("recorded_by", currentUser?.id ?? "")
+      .eq("subject_id", record.subjectId)
+      .eq("term_id", record.termId);
 
     if (error) {
-      toast.error(
-        `Could not load this record: ${error.message}`,
-      );
+      toast.error(`Could not load this record: ${error.message}`);
       return;
     }
 
-    const loadedValues: Record<
-      string,
-      string
-    > = {};
+    const loadedValues: Record<string, string> = {};
 
     for (const row of (data ?? []) as AssessmentScore[]) {
-      loadedValues[
-        `${row.student_id}:${row.component_id}`
-      ] = String(row.score);
+      loadedValues[`${row.student_id}:${row.component_id}`] = String(row.score);
     }
 
     setValues(loadedValues);
@@ -544,119 +480,72 @@ function AssessmentPage() {
    * ---------------------------------------------------------
    */
 
-  const records = useMemo<
-    AssessmentRecord[]
-  >(() => {
+  const records = useMemo<AssessmentRecord[]>(() => {
     const classMap = new Map(
       classes.map((item) => {
-        const value =
-          item as SelectItem;
+        const value = item as SelectItem;
 
-        return [
-          value.id,
-          value.name ??
-            "Unnamed class",
-        ];
+        return [value.id, value.name ?? "Unnamed class"];
       }),
     );
 
     const subjectMap = new Map(
       subjects.map((item) => {
-        const value =
-          item as SelectItem;
+        const value = item as SelectItem;
 
-        return [
-          value.id,
-          value.name ??
-            "Unnamed subject",
-        ];
+        return [value.id, value.name ?? "Unnamed subject"];
       }),
     );
 
-    const termMap = new Map(
-      terms.map((term) => [
-        term.id,
-        term.name,
-      ]),
+    const termMap = new Map(terms.map((term) => [term.id, term.name]));
+
+    const grouped = new Map<
+      string,
+      {
+        classId: string;
+        subjectId: string;
+        termId: string;
+        states: Set<"draft" | "submitted">;
+        students: Set<string>;
+        count: number;
+        updatedAt: string | null;
+      }
+    >();
+
+    const studentClassMap = new Map(
+      students.map((student) => [student.id, student.class_id ?? ""]),
     );
 
-    const grouped =
-      new Map<
-        string,
-        {
-          classId: string;
-          subjectId: string;
-          termId: string;
-          states: Set<
-            "draft" | "submitted"
-          >;
-          students: Set<string>;
-          count: number;
-          updatedAt: string | null;
-        }
-      >();
-
-    const studentClassMap =
-      new Map(
-        students.map((student) => [
-          student.id,
-          student.class_id ?? "",
-        ]),
-      );
-
     for (const score of myScores) {
-      const resolvedClassId =
-        studentClassMap.get(
-          score.student_id,
-        );
+      const resolvedClassId = studentClassMap.get(score.student_id);
 
       if (!resolvedClassId) {
         continue;
       }
 
-      const key =
-        `${resolvedClassId}:${score.subject_id}:${score.term_id}`;
+      const key = `${resolvedClassId}:${score.subject_id}:${score.term_id}`;
 
-      const existing =
-        grouped.get(key);
+      const existing = grouped.get(key);
 
       if (existing) {
         existing.count += 1;
 
-        existing.students.add(
-          score.student_id,
-        );
+        existing.students.add(score.student_id);
 
-        existing.states.add(
-          score.state,
-        );
+        existing.states.add(score.state);
 
-        if (
-          !existing.updatedAt ||
-          (score.updated_at &&
-            score.updated_at >
-              existing.updatedAt)
-        ) {
-          existing.updatedAt =
-            score.updated_at ??
-            null;
+        if (!existing.updatedAt || (score.updated_at && score.updated_at > existing.updatedAt)) {
+          existing.updatedAt = score.updated_at ?? null;
         }
       } else {
         grouped.set(key, {
           classId: resolvedClassId,
-          subjectId:
-            score.subject_id,
+          subjectId: score.subject_id,
           termId: score.term_id,
-          states: new Set([
-            score.state,
-          ]),
-          students: new Set([
-            score.student_id,
-          ]),
+          states: new Set([score.state]),
+          students: new Set([score.student_id]),
           count: 1,
-          updatedAt:
-            score.updated_at ??
-            null,
+          updatedAt: score.updated_at ?? null,
         });
       }
     }
@@ -669,51 +558,25 @@ function AssessmentPage() {
     void subjectMap;
     void termMap;
 
-    return Array.from(
-      grouped.values(),
-    )
+    return Array.from(grouped.values())
       .map((group): AssessmentRecord => ({
         key: `${group.classId}:${group.subjectId}:${group.termId}`,
         classId: group.classId,
-        subjectId:
-          group.subjectId,
+        subjectId: group.subjectId,
         termId: group.termId,
-        state:
-          group.states.has(
-            "draft",
-          )
-            ? "draft"
-            : "submitted",
+        state: group.states.has("draft") ? "draft" : "submitted",
         scoreCount: group.count,
-        studentCount:
-          group.students.size,
-        updatedAt:
-          group.updatedAt,
+        studentCount: group.students.size,
+        updatedAt: group.updatedAt,
       }))
       .sort((a, b) => {
-        const aDate =
-          a.updatedAt
-            ? new Date(
-                a.updatedAt,
-              ).getTime()
-            : 0;
+        const aDate = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
 
-        const bDate =
-          b.updatedAt
-            ? new Date(
-                b.updatedAt,
-              ).getTime()
-            : 0;
+        const bDate = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
 
         return bDate - aDate;
       });
-  }, [
-    myScores,
-    students,
-    classes,
-    subjects,
-    terms,
-  ]);
+  }, [myScores, students, classes, subjects, terms]);
 
   /*
    * ---------------------------------------------------------
@@ -727,203 +590,112 @@ function AssessmentPage() {
 
   const {
     data: teacherRecords = [],
-    isLoading:
-      teacherRecordsLoading,
-    refetch:
-      refetchTeacherRecords,
+    isLoading: teacherRecordsLoading,
+    refetch: refetchTeacherRecords,
   } = useQuery<AssessmentRecord[]>({
-    queryKey: [
-      "my-assessment-records",
-      currentUser?.id,
-    ],
-    enabled:
-      Boolean(currentUser?.id) &&
-      online,
+    queryKey: ["my-assessment-records", currentUser?.id],
+    enabled: Boolean(currentUser?.id) && online,
     queryFn: async (): Promise<AssessmentRecord[]> => {
       if (!currentUser?.id) {
         return [];
       }
 
-      const {
-        data: scoreData,
-        error: scoreError,
-      } = await supabase
+      const { data: scoreData, error: scoreError } = await supabase
         .from("assessment_scores")
-        .select(
-          "student_id, subject_id, term_id, state, updated_at",
-        )
-        .eq(
-          "recorded_by",
-          currentUser.id,
-        );
+        .select("student_id, subject_id, term_id, state, updated_at")
+        .eq("recorded_by", currentUser.id);
 
       if (scoreError) {
         throw scoreError;
       }
 
-      const rows =
-        (scoreData ??
-          []) as AssessmentScore[];
+      const rows = (scoreData ?? []) as AssessmentScore[];
 
       if (rows.length === 0) {
         return [];
       }
 
-      const studentIds = Array.from(
-        new Set(
-          rows.map(
-            (row) =>
-              row.student_id,
-          ),
-        ),
-      );
+      const studentIds = Array.from(new Set(rows.map((row) => row.student_id)));
 
-      const {
-        data: studentData,
-        error: studentError,
-      } = await supabase
+      const { data: studentData, error: studentError } = await supabase
         .from("students")
-        .select(
-          "id, class_id",
-        )
-        .in(
-          "id",
-          studentIds,
-        );
+        .select("id, class_id")
+        .in("id", studentIds);
 
       if (studentError) {
         throw studentError;
       }
 
-      const studentMap =
-        new Map<string, string>();
+      const studentMap = new Map<string, string>();
 
-      for (const student of studentData ??
-        []) {
+      for (const student of studentData ?? []) {
         if (student.class_id) {
-          studentMap.set(
-            student.id,
-            student.class_id,
-          );
+          studentMap.set(student.id, student.class_id);
         }
       }
 
-      const grouped =
-        new Map<
-          string,
-          {
-            classId: string;
-            subjectId: string;
-            termId: string;
-            states: Set<
-              "draft" | "submitted"
-            >;
-            students: Set<string>;
-            scoreCount: number;
-            updatedAt:
-              | string
-              | null;
-          }
-        >();
+      const grouped = new Map<
+        string,
+        {
+          classId: string;
+          subjectId: string;
+          termId: string;
+          states: Set<"draft" | "submitted">;
+          students: Set<string>;
+          scoreCount: number;
+          updatedAt: string | null;
+        }
+      >();
 
       for (const row of rows) {
-        const resolvedClassId =
-          studentMap.get(
-            row.student_id,
-          );
+        const resolvedClassId = studentMap.get(row.student_id);
 
         if (!resolvedClassId) {
           continue;
         }
 
-        const key =
-          `${resolvedClassId}:${row.subject_id}:${row.term_id}`;
+        const key = `${resolvedClassId}:${row.subject_id}:${row.term_id}`;
 
-        const existing =
-          grouped.get(key);
+        const existing = grouped.get(key);
 
         if (existing) {
-          existing.scoreCount +=
-            1;
+          existing.scoreCount += 1;
 
-          existing.students.add(
-            row.student_id,
-          );
+          existing.students.add(row.student_id);
 
-          existing.states.add(
-            row.state,
-          );
+          existing.states.add(row.state);
 
-          if (
-            !existing.updatedAt ||
-            (row.updated_at &&
-              row.updated_at >
-                existing.updatedAt)
-          ) {
-            existing.updatedAt =
-              row.updated_at ??
-              null;
+          if (!existing.updatedAt || (row.updated_at && row.updated_at > existing.updatedAt)) {
+            existing.updatedAt = row.updated_at ?? null;
           }
         } else {
           grouped.set(key, {
-            classId:
-              resolvedClassId,
-            subjectId:
-              row.subject_id,
-            termId:
-              row.term_id,
-            states: new Set([
-              row.state,
-            ]),
-            students: new Set([
-              row.student_id,
-            ]),
+            classId: resolvedClassId,
+            subjectId: row.subject_id,
+            termId: row.term_id,
+            states: new Set([row.state]),
+            students: new Set([row.student_id]),
             scoreCount: 1,
-            updatedAt:
-              row.updated_at ??
-              null,
+            updatedAt: row.updated_at ?? null,
           });
         }
       }
 
-      return Array.from(
-        grouped.values(),
-      )
+      return Array.from(grouped.values())
         .map((group): AssessmentRecord => ({
           key: `${group.classId}:${group.subjectId}:${group.termId}`,
-          classId:
-            group.classId,
-          subjectId:
-            group.subjectId,
-          termId:
-            group.termId,
-          state:
-            group.states.has(
-              "draft",
-            )
-              ? "draft"
-              : "submitted",
-          scoreCount:
-            group.scoreCount,
-          studentCount:
-            group.students.size,
-          updatedAt:
-            group.updatedAt,
+          classId: group.classId,
+          subjectId: group.subjectId,
+          termId: group.termId,
+          state: group.states.has("draft") ? "draft" : "submitted",
+          scoreCount: group.scoreCount,
+          studentCount: group.students.size,
+          updatedAt: group.updatedAt,
         }))
         .sort((a, b) => {
-          const aTime =
-            a.updatedAt
-              ? new Date(
-                  a.updatedAt,
-                ).getTime()
-              : 0;
+          const aTime = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
 
-          const bTime =
-            b.updatedAt
-              ? new Date(
-                  b.updatedAt,
-                ).getTime()
-              : 0;
+          const bTime = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
 
           return bTime - aTime;
         });
@@ -937,14 +709,7 @@ function AssessmentPage() {
    */
 
   const maxTotal = useMemo(() => {
-    return comps.reduce(
-      (sum, component) =>
-        sum +
-        Number(
-          component.max_score,
-        ),
-      0,
-    );
+    return comps.reduce((sum, component) => sum + Number(component.max_score), 0);
   }, [comps]);
 
   /*
@@ -953,39 +718,24 @@ function AssessmentPage() {
    * ---------------------------------------------------------
    */
 
-  function totalFor(
-    studentId: string,
-  ): number {
-    return comps.reduce(
-      (sum, component) => {
-        const key =
-          `${studentId}:${component.id}`;
+  function totalFor(studentId: string): number {
+    return comps.reduce((sum, component) => {
+      const key = `${studentId}:${component.id}`;
 
-        const rawValue =
-          values[key];
+      const rawValue = values[key];
 
-        if (
-          rawValue === undefined ||
-          rawValue === ""
-        ) {
-          return sum;
-        }
+      if (rawValue === undefined || rawValue === "") {
+        return sum;
+      }
 
-        const numberValue =
-          Number(rawValue);
+      const numberValue = Number(rawValue);
 
-        if (
-          !Number.isFinite(
-            numberValue,
-          )
-        ) {
-          return sum;
-        }
+      if (!Number.isFinite(numberValue)) {
+        return sum;
+      }
 
-        return sum + numberValue;
-      },
-      0,
-    );
+      return sum + numberValue;
+    }, 0);
   }
 
   /*
@@ -994,42 +744,26 @@ function AssessmentPage() {
    * ---------------------------------------------------------
    */
 
-  async function submit(
-    state: "draft" | "submitted",
-  ) {
+  async function submit(state: "draft" | "submitted") {
     if (!classId) {
-      toast.error(
-        "Please select a class.",
-      );
+      toast.error("Please select a class.");
       return;
     }
 
     if (!subjectId) {
-      toast.error(
-        "Please select a subject.",
-      );
+      toast.error("Please select a subject.");
       return;
     }
 
     if (!termId) {
-      toast.error(
-        "Please select a term.",
-      );
+      toast.error("Please select a term.");
       return;
     }
 
-    const enteredRows =
-      Object.entries(values).filter(
-        ([, value]) =>
-          value !== "",
-      );
+    const enteredRows = Object.entries(values).filter(([, value]) => value !== "");
 
-    if (
-      enteredRows.length === 0
-    ) {
-      toast.error(
-        "Enter at least one score.",
-      );
+    if (enteredRows.length === 0) {
+      toast.error("Enter at least one score.");
       return;
     }
 
@@ -1039,7 +773,12 @@ function AssessmentPage() {
       const numericScore = Number(value);
       const maximum = Number(component?.max_score);
 
-      if (!component || !Number.isFinite(numericScore) || numericScore < 0 || numericScore > maximum) {
+      if (
+        !component ||
+        !Number.isFinite(numericScore) ||
+        numericScore < 0 ||
+        numericScore > maximum
+      ) {
         toast.error("Each score must be between 0 and its component maximum.");
         return;
       }
@@ -1056,49 +795,33 @@ function AssessmentPage() {
        * getUser() can make a network request and therefore
        * breaks offline score entry.
        */
-      const {
-        data: sessionData,
-        error: sessionError,
-      } =
-        await supabase.auth.getSession();
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
 
       if (sessionError) {
         throw sessionError;
       }
 
-      const authUser =
-        sessionData.session?.user;
+      const authUser = sessionData.session?.user;
 
       if (!authUser) {
-        throw new Error(
-          "Your login session has expired. Please sign in again.",
-        );
+        throw new Error("Your login session has expired. Please sign in again.");
       }
 
-      const rows =
-        enteredRows.map(
-          ([key, value]) => {
-            const [
-              student_id,
-              component_id,
-            ] = key.split(":");
+      const rows = enteredRows.map(([key, value]) => {
+        const [student_id, component_id] = key.split(":");
 
-            const numericScore =
-              Number(value);
+        const numericScore = Number(value);
 
-            return {
-              student_id,
-              component_id,
-              subject_id:
-                subjectId,
-              term_id: termId,
-              score: numericScore,
-              state,
-              recorded_by:
-                authUser.id,
-            };
-          },
-        );
+        return {
+          student_id,
+          component_id,
+          subject_id: subjectId,
+          term_id: termId,
+          score: numericScore,
+          state,
+          recorded_by: authUser.id,
+        };
+      });
 
       /*
        * The offline provider decides whether this should:
@@ -1106,24 +829,16 @@ function AssessmentPage() {
        * 1. Upload immediately when online, or
        * 2. Save to local storage when offline.
        */
-      const result =
-        await save({
-          table:
-            "assessment_scores",
-          rows,
-          onConflict:
-            "student_id,subject_id,component_id,term_id",
-          label:
-            "Assessment scores",
-        });
+      const result = await save({
+        table: "assessment_scores",
+        rows,
+        onConflict: "student_id,subject_id,component_id,term_id",
+        label: "Assessment scores",
+      });
 
-      if (
-        result === "synced"
-      ) {
+      if (result === "synced") {
         toast.success(
-          state === "draft"
-            ? "Draft saved successfully."
-            : "Scores submitted successfully.",
+          state === "draft" ? "Draft saved successfully." : "Scores submitted successfully.",
         );
       } else {
         toast.success(
@@ -1133,11 +848,7 @@ function AssessmentPage() {
         );
       }
 
-      void logAudit(
-        `scores.${state}`,
-        subjectId,
-        `${rows.length} scores`,
-      );
+      void logAudit(`scores.${state}`, subjectId, `${rows.length} scores`);
 
       /*
        * Refresh records only when online.
@@ -1146,33 +857,18 @@ function AssessmentPage() {
        * until synchronization is possible.
        */
       if (online) {
-        await queryClient.invalidateQueries(
-          {
-            queryKey: [
-              "my-assessment-scores",
-            ],
-          },
-        );
+        await queryClient.invalidateQueries({
+          queryKey: ["my-assessment-scores"],
+        });
 
-        await queryClient.invalidateQueries(
-          {
-            queryKey: [
-              "my-assessment-records",
-            ],
-          },
-        );
+        await queryClient.invalidateQueries({
+          queryKey: ["my-assessment-records"],
+        });
       }
     } catch (error) {
-      console.error(
-        "Assessment save error:",
-        error,
-      );
+      console.error("Assessment save error:", error);
 
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Unable to save assessment scores.",
-      );
+      toast.error(error instanceof Error ? error.message : "Unable to save assessment scores.");
     } finally {
       setSaving(false);
     }
@@ -1184,51 +880,22 @@ function AssessmentPage() {
    * ---------------------------------------------------------
    */
 
-  function className(
-    id: string,
-  ) {
-    const found =
-      classes.find(
-        (item) =>
-          (item as SelectItem)
-            .id === id,
-      ) as SelectItem | undefined;
+  function className(id: string) {
+    const found = classes.find((item) => (item as SelectItem).id === id) as SelectItem | undefined;
 
-    return (
-      found?.name ??
-      "Unknown class"
-    );
+    return found?.name ?? "Unknown class";
   }
 
-  function subjectName(
-    id: string,
-  ) {
-    const found =
-      subjects.find(
-        (item) =>
-          (item as SelectItem)
-            .id === id,
-      ) as SelectItem | undefined;
+  function subjectName(id: string) {
+    const found = subjects.find((item) => (item as SelectItem).id === id) as SelectItem | undefined;
 
-    return (
-      found?.name ??
-      "Unknown subject"
-    );
+    return found?.name ?? "Unknown subject";
   }
 
-  function termName(
-    id: string,
-  ) {
-    const found =
-      terms.find(
-        (term) =>
-          term.id === id,
-      );
+  function termName(id: string) {
+    const found = terms.find((term) => term.id === id);
 
-    return (
-      found?.name ??
-      "Unknown term"
-    );
+    return found?.name ?? "Unknown term";
   }
 
   /*
@@ -1239,20 +906,13 @@ function AssessmentPage() {
 
   async function refreshRecords() {
     if (!online) {
-      toast.info(
-        "You are offline. Records will be available again when you are online.",
-      );
+      toast.info("You are offline. Records will be available again when you are online.");
       return;
     }
 
-    await Promise.all([
-      refetchRecords(),
-      refetchTeacherRecords(),
-    ]);
+    await Promise.all([refetchRecords(), refetchTeacherRecords()]);
 
-    toast.success(
-      "Assessment records refreshed.",
-    );
+    toast.success("Assessment records refreshed.");
   }
 
   /*
@@ -1269,9 +929,7 @@ function AssessmentPage() {
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-base font-semibold">
-              Your assessment history
-            </h2>
+            <h2 className="text-base font-semibold">Your assessment history</h2>
 
             <p className="text-sm text-muted-foreground">
               Select a record to open the complete score sheet.
@@ -1281,28 +939,18 @@ function AssessmentPage() {
           <div className="flex gap-2">
             <Button
               variant="outline"
-              onClick={() =>
-                void refreshRecords()
-              }
-              disabled={
-                teacherRecordsLoading ||
-                !online
-              }
+              onClick={() => void refreshRecords()}
+              disabled={teacherRecordsLoading || !online}
             >
               {teacherRecordsLoading ? (
                 <Loader2 className="mr-2 size-4 animate-spin" />
               ) : (
                 <RefreshCw className="mr-2 size-4" />
               )}
-
               Refresh
             </Button>
 
-            <Button
-              onClick={() =>
-                setPageMode("entry")
-              }
-            >
+            <Button onClick={() => setPageMode("entry")}>
               <ClipboardList className="mr-2 size-4" />
               Enter Scores
             </Button>
@@ -1315,13 +963,11 @@ function AssessmentPage() {
               <Clock3 className="mt-0.5 size-5 text-warning-foreground" />
 
               <div>
-                <p className="font-semibold">
-                  You are offline
-                </p>
+                <p className="font-semibold">You are offline</p>
 
                 <p className="text-sm text-muted-foreground">
-                  Previously synchronized records remain available.
-                  New offline changes will appear here after synchronization.
+                  Previously synchronized records remain available. New offline changes will appear
+                  here after synchronization.
                 </p>
 
                 {pending.length > 0 && (
@@ -1341,14 +987,12 @@ function AssessmentPage() {
             </p>
 
             <p className="mt-1 text-sm text-muted-foreground">
-              {recordsQueryError?.message ??
-                "Unknown database error"}
+              {recordsQueryError?.message ?? "Unknown database error"}
             </p>
           </div>
         )}
 
-        {userLoading ||
-        teacherRecordsLoading ? (
+        {userLoading || teacherRecordsLoading ? (
           <div className="surface-card flex items-center justify-center gap-3 p-10">
             <Loader2 className="size-5 animate-spin" />
 
@@ -1356,137 +1000,89 @@ function AssessmentPage() {
               Loading your assessment records...
             </span>
           </div>
-        ) : teacherRecords.length ===
-          0 ? (
+        ) : teacherRecords.length === 0 ? (
           <div className="surface-card p-10 text-center">
             <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-secondary">
               <FileClock className="size-6 text-muted-foreground" />
             </div>
 
-            <h3 className="mt-4 font-semibold">
-              No assessment records yet
-            </h3>
+            <h3 className="mt-4 font-semibold">No assessment records yet</h3>
 
             <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-              Once you save or submit assessment scores,
-              they will appear here so you can return to them later.
+              Once you save or submit assessment scores, they will appear here so you can return to
+              them later.
             </p>
 
-            <Button
-              className="mt-5"
-              onClick={() =>
-                setPageMode("entry")
-              }
-            >
+            <Button className="mt-5" onClick={() => setPageMode("entry")}>
               Enter your first scores
             </Button>
           </div>
         ) : (
           <div className="grid gap-4">
-            {teacherRecords.map(
-              (record) => {
-                const submitted =
-                  record.state ===
-                  "submitted";
+            {teacherRecords.map((record) => {
+              const submitted = record.state === "submitted";
 
-                return (
-                  <div
-                    key={record.key}
-                    className="surface-card p-5"
-                  >
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="font-semibold">
-                            {className(
-                              record.classId,
-                            )}
-                          </h3>
+              return (
+                <div key={record.key} className="surface-card p-5">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="font-semibold">{className(record.classId)}</h3>
 
-                          <span className="text-muted-foreground">
-                            •
-                          </span>
+                        <span className="text-muted-foreground">•</span>
 
-                          <span className="text-sm">
-                            {subjectName(
-                              record.subjectId,
-                            )}
-                          </span>
+                        <span className="text-sm">{subjectName(record.subjectId)}</span>
 
-                          <span className="text-muted-foreground">
-                            •
-                          </span>
+                        <span className="text-muted-foreground">•</span>
 
-                          <span className="text-sm">
-                            {termName(
-                              record.termId,
-                            )}
-                          </span>
-                        </div>
-
-                        <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
-                          <span>
-                            {record.studentCount} student
-                            {record.studentCount ===
-                            1
-                              ? ""
-                              : "s"}
-                          </span>
-
-                          <span>
-                            {record.scoreCount} score
-                            {record.scoreCount ===
-                            1
-                              ? ""
-                              : "s"}
-                          </span>
-
-                          <span>
-                            Last saved:{" "}
-                            {formatDate(
-                              record.updatedAt,
-                            )}
-                          </span>
-                        </div>
+                        <span className="text-sm">{termName(record.termId)}</span>
                       </div>
 
-                      <div className="flex items-center gap-3">
-                        <span
-                          className={
-                            submitted
-                              ? "inline-flex items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-3 py-1.5 text-xs font-medium text-success"
-                              : "inline-flex items-center gap-1.5 rounded-full border border-warning/40 bg-warning/10 px-3 py-1.5 text-xs font-medium text-warning-foreground"
-                          }
-                        >
-                          {submitted ? (
-                            <CheckCircle2 className="size-3.5" />
-                          ) : (
-                            <Clock3 className="size-3.5" />
-                          )}
-
-                          {submitted
-                            ? "Submitted"
-                            : "Draft"}
+                      <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
+                        <span>
+                          {record.studentCount} student
+                          {record.studentCount === 1 ? "" : "s"}
                         </span>
 
-                        <Button
-                          variant="outline"
-                          onClick={() =>
-                            void loadRecord(
-                              record,
-                            )
-                          }
-                          disabled={!online}
-                        >
-                          <Eye className="mr-2 size-4" />
-                          View
-                        </Button>
+                        <span>
+                          {record.scoreCount} score
+                          {record.scoreCount === 1 ? "" : "s"}
+                        </span>
+
+                        <span>Last saved: {formatDate(record.updatedAt)}</span>
                       </div>
                     </div>
+
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={
+                          submitted
+                            ? "inline-flex items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-3 py-1.5 text-xs font-medium text-success"
+                            : "inline-flex items-center gap-1.5 rounded-full border border-warning/40 bg-warning/10 px-3 py-1.5 text-xs font-medium text-warning-foreground"
+                        }
+                      >
+                        {submitted ? (
+                          <CheckCircle2 className="size-3.5" />
+                        ) : (
+                          <Clock3 className="size-3.5" />
+                        )}
+
+                        {submitted ? "Submitted" : "Draft"}
+                      </span>
+
+                      <Button
+                        variant="outline"
+                        onClick={() => void loadRecord(record)}
+                        disabled={!online}
+                      >
+                        <Eye className="mr-2 size-4" />
+                        View
+                      </Button>
+                    </div>
                   </div>
-                );
-              },
-            )}
+                </div>
+              );
+            })}
           </div>
         )}
       </AppShell>
@@ -1504,12 +1100,7 @@ function AssessmentPage() {
       title="Assessment scores"
       description={`Totals out of ${maxTotal}`}
       actions={
-        <Button
-          variant="outline"
-          onClick={() =>
-            setPageMode("records")
-          }
-        >
+        <Button variant="outline" onClick={() => setPageMode("records")}>
           <FileClock className="mr-2 size-4" />
           My Records
         </Button>
@@ -1519,21 +1110,14 @@ function AssessmentPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-base font-semibold">
-            Enter assessment scores
-          </h2>
+          <h2 className="text-base font-semibold">Enter assessment scores</h2>
 
           <p className="text-sm text-muted-foreground">
             Select a class, subject and term, then enter the scores.
           </p>
         </div>
 
-        <Button
-          variant="outline"
-          onClick={() =>
-            setPageMode("records")
-          }
-        >
+        <Button variant="outline" onClick={() => setPageMode("records")}>
           <FileClock className="mr-2 size-4" />
           View My Records
         </Button>
@@ -1547,13 +1131,11 @@ function AssessmentPage() {
             <Clock3 className="mt-0.5 size-5 text-warning-foreground" />
 
             <div>
-              <p className="font-semibold">
-                Offline mode
-              </p>
+              <p className="font-semibold">Offline mode</p>
 
               <p className="text-sm text-muted-foreground">
-                You can continue entering scores.
-                Your changes will be saved locally and synchronized automatically when internet returns.
+                You can continue entering scores. Your changes will be saved locally and
+                synchronized automatically when internet returns.
               </p>
 
               {pending.length > 0 && (
@@ -1566,28 +1148,32 @@ function AssessmentPage() {
         </div>
       )}
 
+      {/* ASSESSMENT CONTROL NOTICE */}
+
+      {!controlLoading && termId && (
+        <AssessmentControlBanner
+          status={assessmentStatus}
+          error={controlError}
+          errorMessage={controlQueryError?.message}
+        />
+      )}
+
       {/* CLASS / SUBJECT / TERM */}
 
       <div className="surface-card grid gap-4 p-4 sm:grid-cols-3">
         {/* CLASS */}
 
         <div className="space-y-2">
-          <Label htmlFor="assessment-class">
-            Class
-          </Label>
+          <Label htmlFor="assessment-class">Class</Label>
 
           <select
             id="assessment-class"
             value={classId}
             onChange={(event) => {
-              setClassId(
-                event.target.value,
-              );
+              setClassId(event.target.value);
               setValues({});
             }}
-            disabled={
-              classesLoading
-            }
+            disabled={classesLoading}
             className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
           >
             <option value="">
@@ -1598,44 +1184,31 @@ function AssessmentPage() {
                   : "Select class"}
             </option>
 
-            {classes.map(
-              (option) => {
-                const item =
-                  option as SelectItem;
+            {classes.map((option) => {
+              const item = option as SelectItem;
 
-                return (
-                  <option
-                    key={item.id}
-                    value={item.id}
-                  >
-                    {item.name ??
-                      "Unnamed class"}
-                  </option>
-                );
-              },
-            )}
+              return (
+                <option key={item.id} value={item.id}>
+                  {item.name ?? "Unnamed class"}
+                </option>
+              );
+            })}
           </select>
         </div>
 
         {/* SUBJECT */}
 
         <div className="space-y-2">
-          <Label htmlFor="assessment-subject">
-            Subject
-          </Label>
+          <Label htmlFor="assessment-subject">Subject</Label>
 
           <select
             id="assessment-subject"
             value={subjectId}
             onChange={(event) => {
-              setSubjectId(
-                event.target.value,
-              );
+              setSubjectId(event.target.value);
               setValues({});
             }}
-            disabled={
-              subjectsLoading
-            }
+            disabled={subjectsLoading}
             className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
           >
             <option value="">
@@ -1646,44 +1219,31 @@ function AssessmentPage() {
                   : "Select subject"}
             </option>
 
-            {subjects.map(
-              (option) => {
-                const item =
-                  option as SelectItem;
+            {subjects.map((option) => {
+              const item = option as SelectItem;
 
-                return (
-                  <option
-                    key={item.id}
-                    value={item.id}
-                  >
-                    {item.name ??
-                      "Unnamed subject"}
-                  </option>
-                );
-              },
-            )}
+              return (
+                <option key={item.id} value={item.id}>
+                  {item.name ?? "Unnamed subject"}
+                </option>
+              );
+            })}
           </select>
         </div>
 
         {/* TERM */}
 
         <div className="space-y-2">
-          <Label htmlFor="assessment-term">
-            Term
-          </Label>
+          <Label htmlFor="assessment-term">Term</Label>
 
           <select
             id="assessment-term"
             value={termId}
             onChange={(event) => {
-              setTermId(
-                event.target.value,
-              );
+              setTermId(event.target.value);
               setValues({});
             }}
-            disabled={
-              termsLoading
-            }
+            disabled={termsLoading}
             className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
           >
             <option value="">
@@ -1694,37 +1254,23 @@ function AssessmentPage() {
                   : "Select term"}
             </option>
 
-            {terms.map(
-              (term) => (
-                <option
-                  key={term.id}
-                  value={term.id}
-                >
-                  {term.name}
-                  {term.is_current
-                    ? " (Current)"
-                    : ""}
-                </option>
-              ),
-            )}
+            {terms.map((term) => (
+              <option key={term.id} value={term.id}>
+                {term.name}
+                {term.is_current ? " (Current)" : ""}
+              </option>
+            ))}
           </select>
 
           {termsError && (
             <p className="text-xs text-destructive">
-              Failed to load terms:{" "}
-              {termsQueryError?.message ??
-                "Unknown database error"}
+              Failed to load terms: {termsQueryError?.message ?? "Unknown database error"}
             </p>
           )}
 
-          {!termsLoading &&
-            !termsError &&
-            terms.length ===
-              0 && (
-              <p className="text-xs text-destructive">
-                No academic terms exist in the database.
-              </p>
-            )}
+          {!termsLoading && !termsError && terms.length === 0 && (
+            <p className="text-xs text-destructive">No academic terms exist in the database.</p>
+          )}
         </div>
       </div>
 
@@ -1734,197 +1280,96 @@ function AssessmentPage() {
         <table className="w-full min-w-[640px] text-sm">
           <thead className="bg-secondary/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
-              <th className="px-4 py-3">
-                Student
-              </th>
+              <th className="px-4 py-3">Student</th>
 
-              {comps.map(
-                (component) => (
-                  <th
-                    key={
-                      component.id
-                    }
-                    className="px-3 py-3"
-                  >
-                    {component.name} (
-                    {
-                      component.max_score
-                    }
-                    )
-                  </th>
-                ),
-              )}
+              {comps.map((component) => (
+                <th key={component.id} className="px-3 py-3">
+                  {component.name} ({component.max_score})
+                </th>
+              ))}
 
-              <th className="px-3 py-3">
-                Total
-              </th>
+              <th className="px-3 py-3">Total</th>
 
-              <th className="px-3 py-3">
-                Grade
-              </th>
+              <th className="px-3 py-3">Grade</th>
 
-              <th className="px-4 py-3">
-                Remark
-              </th>
+              <th className="px-4 py-3">Remark</th>
             </tr>
           </thead>
 
           <tbody className="divide-y divide-border">
-            {students.map(
-              (student) => {
-                const total =
-                  totalFor(
-                    student.id,
-                  );
+            {students.map((student) => {
+              const total = totalFor(student.id);
 
-                const grade =
-                  findGrade(
-                    total,
-                    bands,
-                  );
+              const grade = findGrade(total, bands);
 
-                return (
-                  <tr
-                    key={
-                      student.id
-                    }
-                  >
-                    <td className="px-4 py-2 font-medium">
-                      {
-                        student.full_name
-                      }
-                    </td>
+              return (
+                <tr key={student.id}>
+                  <td className="px-4 py-2 font-medium">{student.full_name}</td>
 
-                    {comps.map(
-                      (
-                        component,
-                      ) => {
-                        const key =
-                          `${student.id}:${component.id}`;
+                  {comps.map((component) => {
+                    const key = `${student.id}:${component.id}`;
 
-                        const currentValue =
-                          values[
-                            key
-                          ] ?? "";
+                    const currentValue = values[key] ?? "";
 
-                        return (
-                          <td
-                            key={
-                              component.id
+                    return (
+                      <td key={component.id} className="px-3 py-2">
+                        <Input
+                          type="number"
+                          min={0}
+                          max={Number(component.max_score)}
+                          step="1"
+                          inputMode="numeric"
+                          className="h-9 w-20"
+                          value={currentValue}
+                          disabled={!assessmentEntryAllowed}
+                          onChange={(event) => {
+                            const inputValue = event.target.value;
+
+                            if (inputValue === "") {
+                              setValues((current) => ({
+                                ...current,
+                                [key]: "",
+                              }));
+
+                              return;
                             }
-                            className="px-3 py-2"
-                          >
-                            <Input
-                              type="number"
-                              min={0}
-                              max={Number(
-                                component.max_score,
-                              )}
-                              step="1"
-                              inputMode="numeric"
-                              className="h-9 w-20"
-                              value={
-                                currentValue
-                              }
-                              onChange={(
-                                event,
-                              ) => {
-                                const inputValue =
-                                  event
-                                    .target
-                                    .value;
 
-                                if (
-                                  inputValue ===
-                                  ""
-                                ) {
-                                  setValues(
-                                    (
-                                      current,
-                                    ) => ({
-                                      ...current,
-                                      [key]:
-                                        "",
-                                    }),
-                                  );
+                            const numericValue = Number(inputValue);
 
-                                  return;
-                                }
+                            if (!Number.isFinite(numericValue)) {
+                              return;
+                            }
 
-                                const numericValue =
-                                  Number(
-                                    inputValue,
-                                  );
+                            if (numericValue < 0) {
+                              return;
+                            }
 
-                                if (
-                                  !Number.isFinite(
-                                    numericValue,
-                                  )
-                                ) {
-                                  return;
-                                }
+                            if (numericValue > Number(component.max_score)) {
+                              return;
+                            }
 
-                                if (
-                                  numericValue <
-                                  0
-                                ) {
-                                  return;
-                                }
+                            setValues((current) => ({
+                              ...current,
+                              [key]: inputValue,
+                            }));
+                          }}
+                        />
+                      </td>
+                    );
+                  })}
 
-                                if (
-                                  numericValue >
-                                  Number(
-                                    component.max_score,
-                                  )
-                                ) {
-                                  return;
-                                }
+                  <td className="px-3 py-2 font-semibold">{total}</td>
 
-                                setValues(
-                                  (
-                                    current,
-                                  ) => ({
-                                    ...current,
-                                    [key]:
-                                      inputValue,
-                                  }),
-                                );
-                              }}
-                            />
-                          </td>
-                        );
-                      },
-                    )}
+                  <td className="px-3 py-2 font-semibold">{grade ? grade.grade : "—"}</td>
 
-                    <td className="px-3 py-2 font-semibold">
-                      {total}
-                    </td>
+                  <td className="px-4 py-2 text-muted-foreground">{grade ? grade.remark : "—"}</td>
+                </tr>
+              );
+            })}
 
-                    <td className="px-3 py-2 font-semibold">
-                      {grade
-                        ? grade.grade
-                        : "—"}
-                    </td>
-
-                    <td className="px-4 py-2 text-muted-foreground">
-                      {grade
-                        ? grade.remark
-                        : "—"}
-                    </td>
-                  </tr>
-                );
-              },
-            )}
-
-            {students.length ===
-              0 && (
+            {students.length === 0 && (
               <tr>
-                <td
-                  className="px-4 py-4 text-muted-foreground"
-                  colSpan={
-                    comps.length + 4
-                  }
-                >
+                <td className="px-4 py-4 text-muted-foreground" colSpan={comps.length + 4}>
                   {studentsLoading
                     ? "Loading students..."
                     : classId
@@ -1940,56 +1385,41 @@ function AssessmentPage() {
       {/* COMPONENT STATUS */}
 
       {componentsLoading && (
-        <p className="text-sm text-muted-foreground">
-          Loading assessment components...
-        </p>
+        <p className="text-sm text-muted-foreground">Loading assessment components...</p>
       )}
 
-      {comps.length ===
-        0 &&
-        !componentsLoading && (
-          <p className="text-sm text-destructive">
-            No assessment components were returned from the database.
-          </p>
-        )}
+      {comps.length === 0 && !componentsLoading && (
+        <p className="text-sm text-destructive">
+          No assessment components were returned from the database.
+        </p>
+      )}
 
       {/* GRADING STATUS */}
 
       {gradeError && (
         <p className="text-sm text-destructive">
           Database grading scale could not be loaded:{" "}
-          {gradeQueryError?.message ??
-            "Unknown database error"}
+          {gradeQueryError?.message ?? "Unknown database error"}
           .
           <br />
           The standard Nigerian grading scale is being used temporarily.
         </p>
       )}
 
-      {!gradeLoading &&
-        !gradeError &&
-        databaseBands.length ===
-          0 && (
-          <p className="text-sm text-muted-foreground">
-            No grading rows were found in the database.
-            The standard Nigerian grading scale is being used temporarily.
-          </p>
-        )}
+      {!gradeLoading && !gradeError && databaseBands.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          No grading rows were found in the database. The standard Nigerian grading scale is being
+          used temporarily.
+        </p>
+      )}
 
       {/* SAVE BUTTONS */}
 
       <div className="flex flex-wrap items-center gap-2">
         <Button
           variant="outline"
-          disabled={
-            saving ||
-            !classId ||
-            !subjectId ||
-            !termId
-          }
-          onClick={() =>
-            void submit("draft")
-          }
+          disabled={saving || !classId || !subjectId || !termId || !assessmentEntryAllowed}
+          onClick={() => void submit("draft")}
         >
           {saving ? (
             <Loader2 className="mr-2 size-4 animate-spin" />
@@ -1997,23 +1427,12 @@ function AssessmentPage() {
             <Clock3 className="mr-2 size-4" />
           )}
 
-          {saving
-            ? "Saving..."
-            : "Save draft"}
+          {saving ? "Saving..." : "Save draft"}
         </Button>
 
         <Button
-          disabled={
-            saving ||
-            !classId ||
-            !subjectId ||
-            !termId
-          }
-          onClick={() =>
-            void submit(
-              "submitted",
-            )
-          }
+          disabled={saving || !classId || !subjectId || !termId || !assessmentEntryAllowed}
+          onClick={() => void submit("submitted")}
         >
           {saving ? (
             <Loader2 className="mr-2 size-4 animate-spin" />
@@ -2021,22 +1440,180 @@ function AssessmentPage() {
             <CheckCircle2 className="mr-2 size-4" />
           )}
 
-          {saving
-            ? "Submitting..."
-            : "Submit scores"}
+          {saving ? "Submitting..." : "Submit scores"}
         </Button>
 
-        <Button
-          variant="ghost"
-          className="ml-auto"
-          onClick={() =>
-            setPageMode("records")
-          }
-        >
+        {!assessmentEntryAllowed && termId && (
+          <CorrectionRequestButton classId={classId} subjectId={subjectId} termId={termId} />
+        )}
+
+        <Button variant="ghost" className="ml-auto" onClick={() => setPageMode("records")}>
           <Eye className="mr-2 size-4" />
           See Previous Records
         </Button>
       </div>
     </AppShell>
+  );
+}
+
+function AssessmentControlBanner({
+  status,
+  error,
+  errorMessage,
+}: {
+  status: string;
+  error: boolean;
+  errorMessage?: string | undefined;
+}) {
+  if (error) {
+    return (
+      <div className="surface-card border-destructive/40 bg-destructive/5 p-4">
+        <p className="text-sm text-destructive">
+          Failed to load assessment control status: {errorMessage ?? "Unknown error"}
+        </p>
+      </div>
+    );
+  }
+
+  if (status === "open") {
+    return null;
+  }
+
+  const isLocked = status === "locked";
+
+  return (
+    <div
+      className={
+        isLocked
+          ? "surface-card border-destructive/40 bg-destructive/5 p-4"
+          : "surface-card border-warning/40 bg-warning/10 p-4"
+      }
+    >
+      <div className="flex items-start gap-3">
+        {isLocked ? (
+          <ShieldCheck className="mt-0.5 size-5 text-destructive" />
+        ) : (
+          <Clock3 className="mt-0.5 size-5 text-warning-foreground" />
+        )}
+
+        <div>
+          <p className="font-semibold">
+            {isLocked
+              ? "Assessment entry is currently locked by the school administrator."
+              : "Assessment entry is currently paused by the school administrator."}
+          </p>
+
+          <p className="text-sm text-muted-foreground">
+            {isLocked
+              ? "You cannot enter or edit assessment scores at this time."
+              : "Score entry and editing are temporarily unavailable."}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CorrectionRequestButton({
+  classId,
+  subjectId,
+  termId,
+}: {
+  classId: string;
+  subjectId: string;
+  termId: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const [requestedValue, setRequestedValue] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  async function submitRequest() {
+    setSubmitting(true);
+    try {
+      const session = await supabase.auth.getSession();
+      const userId = session.data.session?.user?.id;
+      if (!userId) throw new Error("Not authenticated");
+
+      const { error } = await supabase.from("correction_requests").insert({
+        student_id: null,
+        subject_id: subjectId,
+        term_id: termId,
+        field_name: "score",
+        field_label: "assessment_score",
+        table_name: "assessment_scores",
+        original_value: "",
+        requested_value: requestedValue || null,
+        reason,
+        requested_by: userId,
+        status: "pending",
+      });
+
+      if (error) throw error;
+      toast.success("Correction request submitted for admin review");
+      setOpen(false);
+      setReason("");
+      setRequestedValue("");
+      void logAudit("correction.requested", `${classId}:${subjectId}:${termId}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Unable to submit request");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          <ShieldCheck className="mr-2 size-4" />
+          Request correction
+        </Button>
+      </DialogTrigger>
+
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Request assessment correction</DialogTitle>
+          <DialogDescription>
+            Submit a request for the administrator to review. This does not bypass the current
+            assessment lock.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="correction-reason">Reason</Label>
+            <textarea
+              id="correction-reason"
+              required
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Explain why this correction is needed..."
+              className="h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="correction-value">Requested change details</Label>
+            <Input
+              id="correction-value"
+              value={requestedValue}
+              onChange={(e) => setRequestedValue(e.target.value)}
+              placeholder="e.g. Update student score from 12 to 15"
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)} disabled={submitting}>
+            Cancel
+          </Button>
+          <Button onClick={() => void submitRequest()} disabled={submitting || !reason.trim()}>
+            {submitting && <Loader2 className="mr-2 size-4 animate-spin" />}
+            Submit request
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

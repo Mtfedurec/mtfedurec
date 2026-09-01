@@ -1,4 +1,5 @@
 # TASK 1: PRE-PILOT ENGINEERING AUDIT
+
 **Date:** August 25, 2026  
 **Status:** READ-ONLY AUDIT COMPLETE  
 **Version:** MayDan EduRecord v1.0 Pre-Pilot
@@ -8,9 +9,11 @@
 ## A. GIT STATE
 
 ### Overview
+
 **Status:** Clean working tree with 10 modified files, 0 deleted, 0 untracked.
 
 ### Modified Files (165 insertions, 29 deletions)
+
 1. **src/integrations/supabase/types.ts** (+40 lines)
    - Changed from placeholder stub to generic Database type
    - **Analysis:** Generic fallback types with `Record<string, any>` — not table-specific
@@ -23,7 +26,7 @@
    - `restoreQueryCache()` — loads cached queries from localStorage on startup
    - `persistQueryCache()` — subscribes to query cache changes
 
-3. **src/routes/__root.tsx** (+12 lines)
+3. **src/routes/\__root.tsx** (+12 lines)
    - Service worker registration: `/sw.js`
    - Cache clearing on auth logout: `localStorage.removeItem("maydan-query-cache")`
    - QueryClient cleanup on sign-out
@@ -33,20 +36,20 @@
    - `auth.user` → `auth.session?.user`
    - Applied consistently across `useProfile()` and `logAudit()`
 
-5. **src/routes/_authenticated/route.tsx** (+6 lines)
+5. **src/routes/\_authenticated/route.tsx** (+6 lines)
    - Auth guard updated: `getSession()` instead of `getUser()`
    - Protected route validation for `/auth` redirect
 
-6. **src/routes/_authenticated/approvals.tsx** (+4 lines)
+6. **src/routes/\_authenticated/approvals.tsx** (+4 lines)
    - Auth API migration in approval decision workflow
 
-7. **src/routes/_authenticated/attendance.tsx** (+4 lines)
+7. **src/routes/\_authenticated/attendance.tsx** (+4 lines)
    - Auth API migration in attendance recording
 
-8. **src/routes/_authenticated/behaviour.tsx** (+4 lines)
+8. **src/routes/\_authenticated/behaviour.tsx** (+4 lines)
    - Auth API migration in behaviour assessment recording
 
-9. **src/routes/_authenticated/reports.tsx** (+49 lines, -4 lines)
+9. **src/routes/\_authenticated/reports.tsx** (+49 lines, -4 lines)
    - **Major feature:** Report card access control based on roles
    - `isManager` check: admin or head_teacher can publish
    - Teachers can edit `teacher_comment` only if draft and not manager
@@ -61,9 +64,11 @@
     - New interfaces for PublicRoute
 
 ### Warnings
+
 - ⚠️ `src/routeTree.gen.ts`: Line ending warning (LF will be replaced by CRLF on next touch)
 
 ### No Deleted Files, No Untracked Files
+
 ✅ Clean repository state
 
 ---
@@ -73,6 +78,7 @@
 ### Current Status: ⚠️ INCOMPLETE/TRUNCATED
 
 **Current File Content:**
+
 ```typescript
 export type Json = string | number | boolean | null | Json[] | { [key: string]: Json | undefined };
 
@@ -92,30 +98,35 @@ export type Database = {
 ```
 
 **Previous State (HEAD):**
+
 ```
 Need to install the following packages:
 supabase@2.115.0
 ```
 
 ### Analysis
+
 - ✅ **IMPROVEMENT:** Replaced placeholder with proper Database type
 - ❌ **ISSUE:** Uses generic `Record<string, any>` instead of table-specific types
 - ❌ **ROOT CAUSE:** File was NOT regenerated via `supabase gen types` command
 - ✅ **SAFETY:** No manual corruption detected; structure is valid TypeScript
 
 ### Impact on TypeScript
+
 - 35 errors across 13 files — all caused by missing table-specific Row/Insert/Update types
 - Examples:
   ```
   // Expected from real types.ts:
   profiles: { Row: { id: UUID; full_name: string; ... } }
-  
+
   // Current types.ts returns:
   profiles: { Row: Record<string, any> }  // ❌ TypeScript can't infer .full_name
   ```
 
 ### Verification Against Schema
+
 The database schema in migrations/20260803204522 defines these core tables:
+
 - `profiles`, `user_roles`, `school_settings`, `academic_sessions`, `terms`
 - `classes`, `subjects`, `class_subjects`, `students`, `grade_scale`
 - `assessment_components`, `attendance`, `assessment_scores`
@@ -129,6 +140,7 @@ The database schema in migrations/20260803204522 defines these core tables:
 ## C. CURRENT APPLICATION ARCHITECTURE
 
 ### 1. Authentication Provider
+
 - **Supabase** (managed auth via auth.users table)
 - **Session-based** (uses `supabase.auth.getSession()`)
 - **Methods:**
@@ -140,17 +152,21 @@ The database schema in migrations/20260803204522 defines these core tables:
 - **Guard:** `_authenticated` route checks `auth.session?.user` before allowing access
 
 ### 2. Supabase Client Configuration
+
 **File:** `src/integrations/supabase/client.ts` (auto-generated)
+
 - Uses `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` (client-side)
 - Custom fetch handler to inject `apikey` header
 - New Supabase API key format detection (`sb_publishable_*`, `sb_secret_*`)
 - Automatically removes Bearer token for new API key format
 
 **Server client:** `src/integrations/supabase/client.server.ts`
+
 - Uses `SUPABASE_SERVICE_ROLE_KEY` for server-side operations
 - Bypasses RLS (Row-Level Security) — admin operations only
 
 ### 3. Router Architecture
+
 - **Framework:** TanStack Router v2
 - **Entry point:** `src/router.tsx`
 - **Route tree:** `src/routeTree.gen.ts` (auto-generated from file structure)
@@ -173,25 +189,31 @@ The database schema in migrations/20260803204522 defines these core tables:
   ```
 
 ### 4. Protected Route Guard
+
 **Location:** `src/routes/_authenticated/route.tsx`
+
 ```typescript
 beforeLoad: async () => {
   const { data, error } = await supabase.auth.getSession();
   if (error || !data.session?.user) throw redirect({ to: "/auth" });
   return { user: data.session.user };
-}
+};
 ```
+
 - Runs before any route under `_authenticated` loads
 - Redirects unauthenticated users to `/auth`
 - Passes user object to route context
 
 ### 5. Dashboard
+
 **Location:** `src/routes/_authenticated/dashboard.tsx`
+
 - Landing page for authenticated users
 - Shows role-specific navigation (teacher, head_teacher, admin)
 - Links to: assessments, attendance, behaviour, reports, approvals, classes, students, settings, audit
 
 ### 6. Teacher Routes
+
 - `/attendance` — record daily attendance
 - `/assessment` — enter assessment scores
 - `/behaviour` — rate student behaviour by domain/trait
@@ -199,19 +221,23 @@ beforeLoad: async () => {
 - `/approvals` — view correction requests (cannot decide)
 
 ### 7. Admin Routes
+
 - `/settings` — manage school, terms, sessions, staff roles
 - `/classes` — create classes, assign teachers to subjects
 - `/students` — add/edit students
 - `/audit` — view all audit logs
 
 ### 8. Report Card Workflow (NEW)
+
 **Location:** `src/routes/_authenticated/reports.tsx`
 
 **Roles:**
+
 - Teachers (non-managers): Can edit teacher_comment on draft cards only
 - Managers (admin, head_teacher): Can edit head_comment and publish
 
 **States:**
+
 1. Draft (published = false)
    - Teachers can add teacher_comment
    - Managers can review and modify
@@ -221,20 +247,26 @@ beforeLoad: async () => {
    - (Future: public reports visible if `report_cards.published = true`)
 
 ### 9. Public Routes
+
 **New route:** `src/routes/public.tsx` (added in this audit)
+
 - Displays published report cards to anonymous users
 - Query parameter: `?term=TERM_ID`
 - Shows cards where `published = true`
 
 ### 10. Dashboard Component (App Shell)
+
 **Location:** `src/components/app-shell.tsx`
+
 - Sidebar navigation
 - User profile display
 - Sign-out button
 - Role-based menu visibility
 
 ### 11. Offline Logic
+
 **Location:** `src/lib/offline.tsx`
+
 - **Database:** Dexie (IndexedDB wrapper)
 - **Storage:** `maydan-edurecord` database with `pendingJobs` table
 - **States:** idle, syncing, offline, failed
@@ -248,7 +280,9 @@ beforeLoad: async () => {
 - **Job structure:** `{ table, rows, onConflict, label, queuedAt }`
 
 ### 12. React Query Persistence
+
 **Location:** `src/router.tsx`
+
 - **Key:** `"maydan-query-cache"`
 - **TTL:** 7 days (`7 * 24 * 60 * 60 * 1000` ms)
 - **Lifecycle:**
@@ -257,7 +291,9 @@ beforeLoad: async () => {
   - On auth logout: `localStorage.removeItem("maydan-query-cache")` + `queryClient.clear()`
 
 ### 13. Service Worker
+
 **File:** `public/sw.js`
+
 - Registers at app startup (in `__root.tsx`)
 - Network caching for offline support
 - Cache key pattern: `maydan-app-*`
@@ -268,7 +304,9 @@ beforeLoad: async () => {
 ## D. CURRENT SUPABASE/DATABASE STATE
 
 ### Schema Summary
+
 **8 migrations applied successfully** (no pending):
+
 1. **20260803204522** — Core schema (roles, profiles, school, terms, classes, subjects, students, grade_scale, assessment, attendance, behaviour, report_cards, corrections, audit_logs)
 2. **20260803204535** — Revoke execute on role functions from anon/authenticated
 3. **20260803204550** — Revoke public access; grant authenticated access
@@ -280,68 +318,77 @@ beforeLoad: async () => {
 
 ### Tables (15 total)
 
-| Table | Purpose | Key Columns | RLS Enabled |
-|-------|---------|-------------|------------|
-| `profiles` | Staff/user data | id (UUID), full_name, email, staff_number, phone, status | ✅ |
-| `user_roles` | Role assignments | user_id (FK), role (enum) | ✅ |
-| `school_settings` | School metadata | name, motto, address, phone, email, logo_url | ✅ |
-| `academic_sessions` | School year | name, start_date, end_date, is_current | ✅ |
-| `terms` | 3 terms per session | session_id (FK), name, start_date, end_date, is_current | ✅ |
-| `classes` | Classes/grades | name, level, section, class_teacher_id (FK) | ✅ |
-| `subjects` | Subjects offered | name, code | ✅ |
-| `class_subjects` | Class-subject mapping | class_id (FK), subject_id (FK), teacher_id (FK) | ✅ |
-| `students` | Student records | admission_number, full_name, gender, DOB, guardian, class_id (FK) | ✅ |
-| `grade_scale` | Grade conversion | min_score, max_score, grade, remark | ✅ |
-| `assessment_components` | Test types | name, max_score, position | ✅ |
-| `attendance` | Daily attendance | student_id (FK), attendance_date, status (enum), recorded_by (FK) | ✅ |
-| `assessment_scores` | Subject scores | student_id (FK), subject_id (FK), component_id (FK), term_id (FK), score | ✅ |
-| `behaviour_assessments` | Behaviour ratings | student_id (FK), term_id (FK), domain, trait, rating | ✅ |
-| `report_cards` | Term reports | student_id (FK), term_id (FK), average, teacher_comment, head_comment, published, published_by (FK) | ✅ |
-| `correction_requests` | Data corrections | requested_by (FK), student_id (FK), field_label, status (enum), decided_by (FK) | ✅ |
-| `audit_logs` | Action audit trail | actor_id (FK), action, target, details | ✅ |
-| `perf_metrics` | Performance monitoring | kind (enum: http/db), method, path, status_code, model, action, duration_ms | ✅ |
+| Table                   | Purpose                | Key Columns                                                                                         | RLS Enabled |
+| ----------------------- | ---------------------- | --------------------------------------------------------------------------------------------------- | ----------- |
+| `profiles`              | Staff/user data        | id (UUID), full_name, email, staff_number, phone, status                                            | ✅          |
+| `user_roles`            | Role assignments       | user_id (FK), role (enum)                                                                           | ✅          |
+| `school_settings`       | School metadata        | name, motto, address, phone, email, logo_url                                                        | ✅          |
+| `academic_sessions`     | School year            | name, start_date, end_date, is_current                                                              | ✅          |
+| `terms`                 | 3 terms per session    | session_id (FK), name, start_date, end_date, is_current                                             | ✅          |
+| `classes`               | Classes/grades         | name, level, section, class_teacher_id (FK)                                                         | ✅          |
+| `subjects`              | Subjects offered       | name, code                                                                                          | ✅          |
+| `class_subjects`        | Class-subject mapping  | class_id (FK), subject_id (FK), teacher_id (FK)                                                     | ✅          |
+| `students`              | Student records        | admission_number, full_name, gender, DOB, guardian, class_id (FK)                                   | ✅          |
+| `grade_scale`           | Grade conversion       | min_score, max_score, grade, remark                                                                 | ✅          |
+| `assessment_components` | Test types             | name, max_score, position                                                                           | ✅          |
+| `attendance`            | Daily attendance       | student_id (FK), attendance_date, status (enum), recorded_by (FK)                                   | ✅          |
+| `assessment_scores`     | Subject scores         | student_id (FK), subject_id (FK), component_id (FK), term_id (FK), score                            | ✅          |
+| `behaviour_assessments` | Behaviour ratings      | student_id (FK), term_id (FK), domain, trait, rating                                                | ✅          |
+| `report_cards`          | Term reports           | student_id (FK), term_id (FK), average, teacher_comment, head_comment, published, published_by (FK) | ✅          |
+| `correction_requests`   | Data corrections       | requested_by (FK), student_id (FK), field_label, status (enum), decided_by (FK)                     | ✅          |
+| `audit_logs`            | Action audit trail     | actor_id (FK), action, target, details                                                              | ✅          |
+| `perf_metrics`          | Performance monitoring | kind (enum: http/db), method, path, status_code, model, action, duration_ms                         | ✅          |
 
 ### Roles (3)
+
 - **admin** — Full system access
 - **head_teacher** — Academic oversight, publish reports, manage corrections
 - **teacher** — Record attendance, assessments, behaviour; submit report comments
 
 ### Role Functions (Security Definer)
+
 - `has_role(uuid, app_role) → boolean` — Check if user has specific role
 - `is_staff(uuid) → boolean` — Check if user has any role (is staff)
 - `is_manager(uuid) → boolean` — Check if user is admin or head_teacher
 
 ### RLS Policies (Core Pattern)
+
 **Typical read policy:**
+
 ```sql
-CREATE POLICY "staff read X" ON public.X 
-FOR SELECT TO authenticated 
+CREATE POLICY "staff read X" ON public.X
+FOR SELECT TO authenticated
 USING (public.is_staff(auth.uid()));
 ```
 
 **Typical write policy:**
+
 ```sql
-CREATE POLICY "staff insert X" ON public.X 
-FOR INSERT TO authenticated 
+CREATE POLICY "staff insert X" ON public.X
+FOR INSERT TO authenticated
 WITH CHECK (public.is_staff(auth.uid()));
 ```
 
 **Admin-only policy:**
+
 ```sql
-CREATE POLICY "admin write X" ON public.X 
-FOR ALL TO authenticated 
-USING (public.has_role(auth.uid(),'admin')) 
+CREATE POLICY "admin write X" ON public.X
+FOR ALL TO authenticated
+USING (public.has_role(auth.uid(),'admin'))
 WITH CHECK (public.has_role(auth.uid(),'admin'));
 ```
 
 ### Report Cards Policies
+
 **From migration 20260824130000 (NOT YET APPLIED):**
+
 - Public can read if `published = true` (future feature)
 - Teachers (non-managers) can UPDATE only if `published = false` and not manager
 - Managers can UPDATE freely
 - Trigger `trg_protect_report` prevents updates to published cards
 
 ### Important Triggers
+
 - `trg_profiles_updated` — Auto-update `updated_at` on profile changes
 - `trg_students_updated` — Auto-update `updated_at` on student changes
 - `trg_attendance_updated` — Auto-update `updated_at` on attendance changes
@@ -351,12 +398,14 @@ WITH CHECK (public.has_role(auth.uid(),'admin'));
 - `trg_protect_report` — Prevent updates to published report cards
 
 ### Important Indexes
+
 - `idx_students_class` on `students(class_id)`
 - `idx_attendance_date` on `attendance(attendance_date)`
 - `perf_metrics_created_at_idx` on `perf_metrics(created_at DESC)`
 - `perf_metrics_kind_idx` on `perf_metrics(kind, created_at DESC)`
 
 ### Seed Data
+
 - **School:** "MayDan Academy" with motto and contact info
 - **Session:** "2025/2026" (Sept 8, 2025 – July 24, 2026)
 - **Terms:** 3 terms with dates; Term 3 marked as current
@@ -371,15 +420,18 @@ WITH CHECK (public.has_role(auth.uid(),'admin'));
 ## E. CURRENT OFFLINE ARCHITECTURE
 
 ### Technology Stack
+
 - **Dexie** — IndexedDB abstraction layer
 - **localStorage** — Query cache persistence
 - **Service Worker** — Network caching and offline detection
 - **React Context (SyncProvider)** — Manages offline state
 
 ### Database (IndexedDB)
+
 **Name:** `maydan-edurecord`
 **Version:** 1
 **Table:** `pendingJobs`
+
 - **Schema:** `id, queuedAt, table` (indexed on all three)
 - **Record structure:**
   ```typescript
@@ -394,12 +446,14 @@ WITH CHECK (public.has_role(auth.uid(),'admin'));
   ```
 
 ### Sync States
+
 - **idle** — Online, no pending jobs
 - **syncing** — Online, flushing pending jobs
 - **offline** — Detected no network
 - **failed** — Last sync attempt failed
 
 ### Sync Workflow
+
 ```
 User saves data
 ↓
@@ -416,6 +470,7 @@ flush() called → iterate pendingJobs → execute each → retry failed
 ```
 
 ### Query Cache Persistence
+
 ```typescript
 QUERY_CACHE_KEY = "maydan-query-cache"
 QUERY_CACHE_MAX_AGE = 7 * 24 * 60 * 60 * 1000 // 7 days
@@ -428,14 +483,17 @@ localStorage item format:
 ```
 
 **Lifecycle:**
+
 1. On app startup: `restoreQueryCache(queryClient)` loads from localStorage
 2. On every query cache change: `persistQueryCache()` saves to localStorage
 3. On auth logout: Cache cleared (`localStorage.removeItem()` + `queryClient.clear()`)
 4. Cache expires after 7 days
 
 ### Service Worker
+
 **File:** `public/sw.js`
 **Lifecycle:**
+
 1. Registered from `src/routes/__root.tsx` on app load
 2. Cache name pattern: `maydan-app-*` + timestamp
 3. On update: old caches deleted
@@ -448,6 +506,7 @@ localStorage item format:
 ### ✅ No Critical Vulnerabilities Detected
 
 #### Credentials & Keys
+
 - ✅ **Service-role key:** Used only in `src/integrations/supabase/client.server.ts` (server-side only, never exposed to client)
 - ✅ **Publishable key:** Used in `src/integrations/supabase/client.ts` (public-facing, but correct usage)
 - ✅ **No hardcoded credentials** in source code
@@ -455,6 +514,7 @@ localStorage item format:
 - ✅ **No API keys** in config files
 
 #### RLS (Row-Level Security)
+
 - ✅ **All tables** have RLS enabled
 - ✅ **No FOR ALL policies** without proper role checks
 - ✅ **Auth context** properly used: `auth.uid()` in all policies
@@ -462,6 +522,7 @@ localStorage item format:
 - ✅ **Functions** use `SECURITY DEFINER` with proper `search_path` isolation
 
 #### Authentication
+
 - ✅ **Session-based** — not token-based in localStorage (Supabase manages internally)
 - ✅ **Password reset** — email-based, time-limited tokens
 - ✅ **OAuth** — Google integration via Supabase
@@ -469,22 +530,26 @@ localStorage item format:
 - ✅ **No password storage** — delegated to Supabase auth.users
 
 #### Authorization
+
 - ✅ **Protected routes** — `_authenticated` layout checks session before loading
 - ✅ **RLS policies** — enforce role checks on all queries
 - ✅ **Server functions** — use service-role key with explicit user_id checks
 - ✅ **No implicit trust** of client-provided user IDs
 
 #### Offline Queue
+
 - ✅ **IndexedDB stored locally** — cannot be accessed by other origins
 - ✅ **No sensitive data** persisted — only job metadata
 - ✅ **Cache cleared on logout** — `localStorage.removeItem("maydan-query-cache")`
 - ✅ **Sync includes auth header** — jobs only applied with valid session
 
 #### Audit Trail
+
 - ✅ **Audit logs** — all significant actions recorded with actor_id, action, target, details
 - ✅ **Non-repudiation** — actor_id tied to auth.users
 
 #### Known Limitations (Not Critical)
+
 - ⚠️ **Generic Database types** — lack static type checking for table fields
   - Mitigation: Runtime validation via Zod or similar recommended
   - Risk: Low (TypeScript errors don't prevent build/runtime)
@@ -501,6 +566,7 @@ localStorage item format:
 ### Error Categories
 
 **1. Missing Table-Specific Types (30+ errors)**
+
 - Root cause: `types.ts` uses generic `Record<string, any>` instead of table definitions
 - Examples:
   - `Property 'full_name' does not exist on type 'never'` — profiles.full_name not typed
@@ -509,29 +575,37 @@ localStorage item format:
 - Affected files: 11 of 13 files with errors
 
 **2. Type Casting Workarounds (3 errors)**
+
 ```typescript
 // In assessment.tsx, attendance.tsx, behaviour.tsx, reports.tsx
-classes[0] as { id: string }  // Type assertion because classes[0] is 'never'
+classes[0] as { id: string }; // Type assertion because classes[0] is 'never'
 ```
+
 - Workaround: Developers cast to local types to bypass generic typing
 
 **3. RPC Parameter Type Issues (2 errors)**
+
 ```typescript
 // In classes.tsx:238
-await supabase.rpc("assign_class_teacher", { p_teacher_id, p_class_id })
-// Error: Argument of type '{ p_teacher_id: string; p_class_id: string; }' 
+await supabase.rpc("assign_class_teacher", { p_teacher_id, p_class_id });
+// Error: Argument of type '{ p_teacher_id: string; p_class_id: string; }'
 //        is not assignable to parameter of type 'undefined'
 ```
+
 - Root cause: RPC functions not defined in Database.Functions type
 
 ### Build Outcome
+
 ✅ **Build still succeeds** — TypeScript errors are non-fatal
+
 - Vite compiles without `tsc --noEmit` check
 - Runtime behavior unaffected
 - Type safety reduced; IDE support limited
 
 ### TypeScript Configuration
+
 **File:** `tsconfig.json`
+
 - `strict: true` — Enforces strict mode (catches more errors)
 - `noEmit: true` — Type-checking only, no code generation
 - `jsx: "react-jsx"` — React 17+ JSX transform
@@ -544,33 +618,41 @@ await supabase.rpc("assign_class_teacher", { p_teacher_id, p_class_id })
 
 **Command:** `npm run build`  
 **Duration:** 82 seconds total
+
 - Client build: 1m 22s (1,979 modules)
 - SSR build: 15.11s (97 modules)
 - Nitro build: 13.36s (2,011 modules)
 
 ### Output Sizes
+
 **Client (public/assets/):**
+
 - `index-DApap1hW.js` — 592.61 kB (171.60 kB gzip) ⚠️ **Large**
 - Largest components: offline logic, assessment UI, auth UI
 
-**Server (server/_ssr/):**
+**Server (server/\_ssr/):**
+
 - `@tanstack/react-router+...mjs` — 643.64 kB (135.58 kB gzip)
 - `dexie+unenv.mjs` — 133.30 kB (36.25 kB gzip)
 - `supabase__auth-js+tslib.mjs` — 313.36 kB (64.02 kB gzip)
 
 ### Warnings
+
 - ⚠️ **Plugin suggestion:** Remove `vite-tsconfig-paths` plugin; use native `resolve.tsconfigPaths`
 - ⚠️ **Chunk size warning:** Main bundle exceeds 500 kB
   - Recommendation: Dynamic imports for code-splitting
   - Current: 1979 modules in single client bundle
 
 ### Build Artifacts
+
 - ✅ **Client output:** `.output/public/` (production-ready)
 - ✅ **Server output:** `.output/server/` (Nitro runtime)
 - ✅ **Wrangler config:** `.output/server/wrangler.json` (Cloudflare Workers)
 
 ### Deployment Ready
+
 ✅ Build can be deployed via:
+
 ```bash
 npx nitro deploy --prebuilt
 ```
@@ -609,6 +691,7 @@ However, consider these before production:
 ## J. FILES THAT SHOULD NOT BE TOUCHED
 
 ### ✅ Auto-Generated (Do Not Edit Manually)
+
 1. **src/routeTree.gen.ts** — Auto-generated by TanStack Router on file changes
 2. **src/integrations/supabase/types.ts** — Auto-generated by `supabase gen types`
 3. **src/integrations/supabase/client.ts** — Auto-generated by Supabase CLI
@@ -616,7 +699,8 @@ However, consider these before production:
 5. **node_modules/*** — Dependency directory
 
 ### ⚠️ Critical (High Risk of Breaking Changes)
-1. **supabase/migrations/*.sql** — Change only via Supabase dashboard
+
+1. **supabase/migrations/\*.sql** — Change only via Supabase dashboard
    - Any manual edits risk desynchronization
    - Recommendation: Only add NEW migrations; never modify applied ones
 2. **src/lib/offline.tsx** — Core offline engine
@@ -628,6 +712,7 @@ However, consider these before production:
    - Uses service-role key; misuse risks security breach
 
 ### ✅ Safe to Modify
+
 - Route files (src/routes/*)
 - UI components (src/components/*)
 - Data fetching logic (src/lib/data.ts)
@@ -640,55 +725,64 @@ However, consider these before production:
 ### Status: ⚠️ CONDITIONAL
 
 #### Current State
+
 - ✅ All 8 migrations applied to Supabase
 - ⚠️ Migration 20260824130000 (report card policies) is INTENTIONALLY NOT APPLIED according to file header
 
 #### Analysis
+
 **Report Card Access Policies** (migration 20260824130000):
+
 ```sql
-CREATE POLICY "public read published reports" ON public.report_cards 
+CREATE POLICY "public read published reports" ON public.report_cards
 FOR SELECT TO anon USING (published = true);
 
-CREATE POLICY "teacher manage draft reports" ON public.report_cards 
+CREATE POLICY "teacher manage draft reports" ON public.report_cards
 FOR UPDATE TO authenticated USING (...published = false...)
 
-CREATE POLICY "manager review and publish reports" ON public.report_cards 
+CREATE POLICY "manager review and publish reports" ON public.report_cards
 FOR UPDATE TO authenticated USING (public.is_manager(auth.uid()))
 ```
 
 **Current State in Application:**
+
 - ✅ Role-based logic implemented in `src/routes/_authenticated/reports.tsx`
 - ✅ Client-side validation prevents publish if not manager
 - ✅ Trigger `trg_protect_report` prevents updates to published records
 - ❓ Database-level enforcement: Unknown (not in applied migrations list)
 
 #### Recommendation
+
 **SUPABASE SQL REQUIRED: YES** — Conditional
 
 **Why:**
+
 1. Migration 20260824130000 explicitly marks itself as "intentionally not applied"
 2. Report card policies should be enforced at database level, not client-side
 3. Public read access (`FOR SELECT TO anon`) is defined but not applied
 4. Teacher draft-only updates need RLS enforcement
 
 **What to Apply:**
+
 ```bash
 # Connect to Supabase > SQL Editor
 # Copy and run migration 20260824130000 content:
 ```
 
-**If NOT applied:** 
+**If NOT applied:**
+
 - ❌ Published report cards can still be edited by any authenticated staff member (no RLS check)
 - ❌ Public reports feature (src/routes/public.tsx) won't work (no anon read access)
 - ⚠️ Relying on client-side validation only (security risk)
 
 **Recommendation before production pilot:**
+
 ```
 SUPABASE SQL REQUIRED: YES
 
 Action: Have a Supabase administrator run migration 20260824130000 in production Supabase.
 
-Reason: 
+Reason:
 - Enforce report card immutability at database level
 - Enable public read access for published reports
 - Prevent unauthorized edits via API bypass
@@ -705,6 +799,7 @@ Reason:
 **Steps (in order):**
 
 1. **Regenerate Supabase Types** (5 min)
+
    ```bash
    supabase gen types typescript > src/integrations/supabase/types.ts
    ```
@@ -712,6 +807,7 @@ Reason:
    - Restores IDE autocomplete for all tables
 
 2. **Verify Build** (2 min)
+
    ```bash
    npm run build
    ```
@@ -730,12 +826,14 @@ Reason:
    - No red squiggles on table field access
 
 5. **Run Full Build & Type Check** (5 min)
+
    ```bash
    npx tsc --noEmit && npm run build
    ```
    - Confirm zero errors
 
 6. **Smoke Test Locally** (15 min)
+
    ```bash
    npm run dev
    ```
@@ -761,6 +859,7 @@ Reason:
 ### src/router.tsx — React Query Persistence
 
 **Added:**
+
 ```typescript
 import { dehydrate, hydrate, QueryClient } from "@tanstack/react-query";
 
@@ -813,6 +912,7 @@ persistQueryCache(queryClient);
 ### src/routes/__root.tsx — Service Worker & Cache Cleanup
 
 **Added:**
+
 ```typescript
 useEffect(() => {
   if ("serviceWorker" in navigator) {
@@ -836,7 +936,8 @@ useEffect(() => {
 }, [router, queryClient]);
 ```
 
-**Purpose:** 
+**Purpose:**
+
 1. Register service worker for offline support
 2. Clear cached queries on logout
 
@@ -845,12 +946,14 @@ useEffect(() => {
 ### src/lib/data.ts — Auth API Migration
 
 **Before:**
+
 ```typescript
 const { data: auth } = await supabase.auth.getUser();
 const user = auth.user;
 ```
 
 **After:**
+
 ```typescript
 const { data: auth } = await supabase.auth.getSession();
 const user = auth.session?.user;
@@ -863,6 +966,7 @@ const user = auth.session?.user;
 ### src/routes/_authenticated/reports.tsx — Role-Based Report Card Editing
 
 **Added:**
+
 ```typescript
 const { data: profile } = useProfile();
 const roles = profile?.roles ?? [];
@@ -898,16 +1002,15 @@ async function saveCard(publish: boolean) {
 
 ## SUMMARY
 
-| Aspect | Status | Notes |
-|--------|--------|-------|
-| **Git State** | ✅ Clean | 10 files modified; auth API updated, offline caching added, report card roles implemented |
-| **types.ts** | ⚠️ Incomplete | Generic `Record<string, any>` instead of table-specific types; needs regeneration |
-| **TypeScript** | ❌ 35 errors | All from generic types; build succeeds anyway |
-| **Build** | ✅ Success | 82s; 592 kB main bundle (acceptable) |
-| **Security** | ✅ Good | No hardcoded secrets; RLS enabled; role-based access control in place |
-| **Database** | ✅ Correct | 8 migrations applied; 15 tables; roles and triggers in place |
-| **Offline** | ✅ Functional | Dexie queue, localStorage cache, service worker registered |
-| **Blockers** | ✅ None | Application ready for pilot; type safety and RLS policies recommended before production |
+| Aspect         | Status        | Notes                                                                                     |
+| -------------- | ------------- | ----------------------------------------------------------------------------------------- |
+| **Git State**  | ✅ Clean      | 10 files modified; auth API updated, offline caching added, report card roles implemented |
+| **types.ts**   | ⚠️ Incomplete | Generic `Record<string, any>` instead of table-specific types; needs regeneration         |
+| **TypeScript** | ❌ 35 errors  | All from generic types; build succeeds anyway                                             |
+| **Build**      | ✅ Success    | 82s; 592 kB main bundle (acceptable)                                                      |
+| **Security**   | ✅ Good       | No hardcoded secrets; RLS enabled; role-based access control in place                     |
+| **Database**   | ✅ Correct    | 8 migrations applied; 15 tables; roles and triggers in place                              |
+| **Offline**    | ✅ Functional | Dexie queue, localStorage cache, service worker registered                                |
+| **Blockers**   | ✅ None       | Application ready for pilot; type safety and RLS policies recommended before production   |
 
 **Cleared for pilot testing.** Proceed to TASK 2 for type safety improvements.
-
