@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Bell, CheckCheck, Eye, EyeOff, Loader2, RefreshCw, Trash2 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
-import { getSessionSafely } from "@/integrations/supabase/auth-helper";
+import { getValidatedSession } from "@/integrations/supabase/auth-helper";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/notifications")({
   beforeLoad: async () => {
-    const session = await getSessionSafely();
+    const session = await getValidatedSession();
     if (!session?.user) throw redirect({ to: "/auth" });
   },
   head: () => ({

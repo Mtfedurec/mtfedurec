@@ -262,13 +262,31 @@ export function useStaff() {
 export function useAnnouncements() {
   return useQuery({
     queryKey: ["announcements"],
-    queryFn: () =>
-      rows(
-        supabase
-          .from("announcements")
-          .select("*, announcement_reads(count)")
-          .order("published_at", { ascending: false }),
-      ),
+    queryFn: async () => {
+      const session = await getSessionSafely();
+      if (!session?.user) return [];
+
+      // Admin/managers can see all announcements
+      // Teachers/staff see only published announcements
+      const { data: roles } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", session.user.id);
+
+      const isManager = (roles ?? []).some((r) => r.role === "admin" || r.role === "head_teacher");
+
+      let query = supabase.from("announcements").select("*, announcement_reads(count)");
+
+      if (!isManager) {
+        // Non-managers (teachers) can only see published announcements
+        query = query.eq("is_published", true);
+      }
+
+      const { data, error } = await query.order("published_at", { ascending: false });
+
+      if (error) throw error;
+      return data ?? [];
+    },
   });
 }
 

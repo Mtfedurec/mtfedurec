@@ -1,50 +1,63 @@
 /**
- * Auth helper utilities for handling Supabase sessions,
- * both online and offline (with persisted localStorage sessions).
+ * Auth helper utilities for handling Supabase sessions safely.
  *
- * ARCHITECTURE:
- * - Initial login REQUIRES real Supabase authentication (online)
- * - Supabase client persists the session to localStorage (persistSession: true)
- * - After login, getSession() can work offline using the cached session
- * - We do not create fake sessions or bypass Supabase authentication
- * - RLS policies protect data at the database level
+ * We validate the session with the auth server, reject stale/expired sessions,
+ * and only then allow the app to continue. This prevents SSR/client auth drift
+ * from creating a bypass and ensures invalid sessions are signed out promptly.
  */
 
 import { supabase } from "./client";
 
-/**
- * Get the current session, with graceful offline fallback.
- *
- * 1. First tries to get a fresh session from Supabase (online flow)
- * 2. If that fails (offline), returns null gracefully instead of throwing
- * 3. The Supabase client auto-loads persisted sessions from localStorage on init
- *    and the session data is preserved in the returned object
- *
- * This allows authenticated users to continue working offline without redirect.
- */
-export async function getSessionSafely() {
+export async function getValidatedSession() {
   try {
-    // Try to get the current session from Supabase
-    // This includes both fresh sessions (online) and cached sessions (from localStorage)
-    const { data, error } = await supabase.auth.getSession();
+    const [{ data: sessionData, error: sessionError }, { data: userData, error: userError }] =
+      await Promise.all([supabase.auth.getSession(), supabase.auth.getUser()]);
 
-    if (!error && data?.session) {
-      return data.session;
+    if (sessionError) {
+      throw sessionError;
     }
 
-    // If no session available, return null (don't throw)
-    return null;
+    if (userError) {
+      throw userError;
+    }
+
+    const session = sessionData.session;
+    const user = userData.user;
+
+    if (!session || !user) {
+      await supabase.auth.signOut({ scope: "global" }).catch(() => undefined);
+      return null;
+    }
+
+    if (session.user.id !== user.id) {
+      await supabase.auth.signOut({ scope: "global" }).catch(() => undefined);
+      return null;
+    }
+
+    return { session, user };
   } catch (error) {
-    // Network error or other issue; return null instead of throwing
-    // This prevents redirects when offline
+    console.warn("Invalid or expired Supabase session detected; clearing session.", error);
+    await supabase.auth.signOut({ scope: "global" }).catch(() => undefined);
     return null;
   }
 }
 
-/**
- * Get the current user, with graceful offline fallback.
- */
+export async function getSessionSafely() {
+  return (await getValidatedSession())?.session ?? null;
+}
+
 export async function getCurrentUserSafely() {
-  const session = await getSessionSafely();
-  return session?.user ?? null;
+  return (await getValidatedSession())?.user ?? null;
+}
+
+export async function getUserRoles(userId: string) {
+  const { data, error } = await supabase.from("user_roles").select("role").eq("user_id", userId);
+
+  if (error) throw error;
+  return (data ?? []).map((row) => String(row.role));
+}
+
+export async function userHasAnyRole(userId: string, roles: readonly string[]) {
+  const userRoles = await getUserRoles(userId);
+  return roles.some((role) => userRoles.includes(role));
 }

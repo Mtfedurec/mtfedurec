@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
+import { getValidatedSession } from "@/integrations/supabase/auth-helper";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +41,10 @@ import {
 import { useSync } from "@/lib/offline";
 
 export const Route = createFileRoute("/_authenticated/assessment")({
+  beforeLoad: async () => {
+    const session = await getValidatedSession();
+    if (!session?.user) throw redirect({ to: "/auth" });
+  },
   head: () => ({
     meta: [
       {

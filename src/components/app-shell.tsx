@@ -255,16 +255,17 @@ export function AppShell({
    */
 
   async function signOut() {
-    await queryClient.cancelQueries();
-
-    queryClient.clear();
-
-    await supabase.auth.signOut();
-
-    navigate({
-      to: "/auth",
-      replace: true,
-    });
+    try {
+      await queryClient.cancelQueries();
+      queryClient.clear();
+      localStorage.removeItem("maydan-query-cache");
+      await supabase.auth.signOut({ scope: "global" });
+    } finally {
+      navigate({
+        to: "/auth",
+        replace: true,
+      });
+    }
   }
 
   return (

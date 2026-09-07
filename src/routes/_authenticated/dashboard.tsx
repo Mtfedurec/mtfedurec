@@ -1,5 +1,7 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { getValidatedSession } from "@/integrations/supabase/auth-helper";
+import { supabase } from "@/integrations/supabase/client";
 import {
   CalendarCheck,
   ClipboardList,
@@ -8,11 +10,14 @@ import {
   GraduationCap,
   FileText,
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { AppShell, StatCard } from "@/components/app-shell";
 import { useClasses, useProfile, useStudents, useTerms } from "@/lib/data";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
+  beforeLoad: async () => {
+    const session = await getValidatedSession();
+    if (!session?.user) throw redirect({ to: "/auth" });
+  },
   head: () => ({
     meta: [
       { title: "Dashboard — MayDan EduRecord" },

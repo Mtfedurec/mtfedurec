@@ -1,15 +1,26 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Printer } from "lucide-react";
-import { toast } from "sonner";
+import { getValidatedSession } from "@/integrations/supabase/auth-helper";
 import { supabase } from "@/integrations/supabase/client";
-import { getSessionSafely } from "@/integrations/supabase/auth-helper";
+import { Printer, Mail, Send } from "lucide-react";
+import { toast } from "sonner";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { gradeFor, type GradeBand } from "@/lib/academic";
+import { sendParentResultNotification } from "@/lib/result-email";
 import {
   logAudit,
   useClasses,
@@ -23,6 +34,20 @@ import {
 } from "@/lib/data";
 
 export const Route = createFileRoute("/_authenticated/reports")({
+  beforeLoad: async () => {
+    const session = await getValidatedSession();
+    if (!session?.user) throw redirect({ to: "/auth" });
+
+    const { data: roles, error } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", session.user.id);
+
+    if (error) throw error;
+
+    const isStaff = (roles ?? []).length > 0;
+    if (!isStaff) throw redirect({ to: "/dashboard" });
+  },
   head: () => ({
     meta: [
       { title: "Report cards — MayDan EduRecord" },
@@ -54,6 +79,16 @@ function ReportsPage() {
   const [headComment, setHeadComment] = useState("");
   const roles = profile?.roles ?? [];
   const isManager = roles.includes("admin") || roles.includes("head_teacher");
+
+  // Class publishing state
+  const [showClassPublishDialog, setShowClassPublishDialog] = useState(false);
+  const [classPublishBusy, setClassPublishBusy] = useState(false);
+  const [notifyParents, setNotifyParents] = useState(false);
+
+  // Individual email state
+  const [showEmailDialog, setShowEmailDialog] = useState(false);
+  const [parentEmail, setParentEmail] = useState("");
+  const [emailBusy, setEmailBusy] = useState(false);
 
   useEffect(() => {
     if (classes.length && !classId) setClassId((classes[0] as { id: string }).id);
@@ -144,7 +179,7 @@ function ReportsPage() {
       return;
     }
 
-    const session = await getSessionSafely();
+    const session = await getValidatedSession();
     const { error } = await supabase.from("report_cards").upsert(
       {
         student_id: studentId,
@@ -170,6 +205,146 @@ function ReportsPage() {
     toast.success(publish ? "Report card published" : "Report card saved");
     void logAudit(publish ? "report.published" : "report.saved", studentId);
     void queryClient.invalidateQueries({ queryKey: ["report-card"] });
+  }
+
+  async function publishClassResults() {
+    if (!classId || !termId || !isManager) {
+      toast.error("Select a class and term. Only managers can publish class results.");
+      return;
+    }
+
+    try {
+      setClassPublishBusy(true);
+      const session = await getValidatedSession();
+      const classStudents = (students as { id: string; guardian_email?: string | null }[]) || [];
+
+      const { data: existingCards, error: fetchError } = await supabase
+        .from("report_cards")
+        .select("id, student_id, published, guardian_email:students(guardian_email)")
+        .eq("term_id", termId)
+        .in(
+          "student_id",
+          classStudents.map((s) => s.id),
+        );
+
+      if (fetchError) throw fetchError;
+
+      const cardsToPublish = (existingCards ?? [])
+        .filter((card) => !(card as { published?: boolean }).published)
+        .map((card) => ({
+          student_id: (card as { student_id: string }).student_id,
+          term_id: termId,
+          published: true,
+          published_at: new Date().toISOString(),
+          published_by: session?.user.id ?? null,
+        }));
+
+      if (!cardsToPublish.length) {
+        toast.info("All results in this class are already published.");
+        setShowClassPublishDialog(false);
+        return;
+      }
+
+      // Publish all results
+      const { error: publishError } = await supabase
+        .from("report_cards")
+        .upsert(cardsToPublish, { onConflict: "student_id,term_id" });
+
+      if (publishError) throw publishError;
+
+      // Send parent emails if requested
+      let emailsSent = 0;
+      if (notifyParents) {
+        const term = (terms as { id: string; name: string }[]).find(
+          (t) => (t as { id: string }).id === termId,
+        ) as { name: string } | undefined;
+
+        for (const student of classStudents) {
+          const guardianEmail = student.guardian_email;
+          if (!guardianEmail) continue;
+
+          const result = await sendParentResultNotification({
+            to: guardianEmail,
+            student_name: (student as { full_name?: string }).full_name || "Student",
+            class_name: (
+              classes.find((c) => (c as { id: string }).id === classId) as {
+                name?: string;
+              } | undefined
+            )?.name || "Class",
+            term: term?.name || "Term",
+            session: (
+              (
+                terms.find((t) => (t as { id: string }).id === termId) as {
+                  academic_sessions?: { name?: string } | null;
+                }
+              )?.academic_sessions?.name || "Session"
+            ).toString(),
+            school_name: (school as { name?: string })?.name || "MayDan Academy",
+            portal_link: `${typeof window !== "undefined" ? window.location.origin : ""}`,
+          });
+
+          if (result.status === "sent") emailsSent += 1;
+        }
+      }
+
+      toast.success(
+        `Published ${cardsToPublish.length} results${notifyParents ? ` and sent ${emailsSent} notifications` : ""}`,
+      );
+      void logAudit("class_results.published", classId, String(cardsToPublish.length));
+      void queryClient.invalidateQueries({ queryKey: ["report-card"] });
+      setShowClassPublishDialog(false);
+      setNotifyParents(false);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to publish class results. Check that results are ready.",
+      );
+    } finally {
+      setClassPublishBusy(false);
+    }
+  }
+
+  async function sendResultEmail() {
+    if (!student || !published || !parentEmail.trim()) {
+      toast.error("Select a published result and enter parent email.");
+      return;
+    }
+
+    try {
+      setEmailBusy(true);
+      const term = (terms as { id: string; name: string }[]).find(
+        (t) => (t as { id: string }).id === termId,
+      ) as { name: string } | undefined;
+
+      const result = await sendParentResultNotification({
+        to: parentEmail.trim(),
+        student_name: student.full_name,
+        class_name: student.classes?.name || "Class",
+        term: term?.name || "Term",
+        session: (
+          (
+            terms.find((t) => (t as { id: string }).id === termId) as {
+              academic_sessions?: { name?: string } | null;
+            }
+          )?.academic_sessions?.name || "Session"
+        ).toString(),
+        school_name: (school as { name?: string })?.name || "MayDan Academy",
+        portal_link: `${typeof window !== "undefined" ? window.location.origin : ""}`,
+      });
+
+      if (result.status === "sent") {
+        toast.success("Result notification queued for delivery");
+        setShowEmailDialog(false);
+        setParentEmail("");
+      } else {
+        toast.error(result.message);
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to send email notification.");
+    } finally {
+      setEmailBusy(false);
+    }
   }
 
   return (
@@ -306,7 +481,103 @@ function ReportsPage() {
         <Button disabled={!canPublish} onClick={() => void saveCard(true)}>
           Publish report card
         </Button>
+        {isManager && (
+          <>
+            <Button
+              variant="outline"
+              disabled={!classId || !termId}
+              onClick={() => setShowClassPublishDialog(true)}
+            >
+              Publish class results
+            </Button>
+            {published && (
+              <Button variant="outline" onClick={() => setShowEmailDialog(true)}>
+                <Mail className="mr-2 size-4" /> Send result email
+              </Button>
+            )}
+          </>
+        )}
       </div>
+
+      {/* Class Publish Dialog */}
+      <AlertDialog open={showClassPublishDialog} onOpenChange={setShowClassPublishDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Publish class results</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will publish all unpublished results for this class and term.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 rounded-lg bg-muted p-3">
+              <input
+                type="checkbox"
+                id="notify-parents"
+                checked={notifyParents}
+                onChange={(e) => setNotifyParents(e.target.checked)}
+                className="h-4 w-4 rounded border border-input"
+              />
+              <label htmlFor="notify-parents" className="text-sm font-medium cursor-pointer">
+                Send parent notifications
+              </label>
+            </div>
+            {notifyParents && (
+              <p className="text-xs text-muted-foreground">
+                Emails will be sent to parents with email addresses on file. This requires email
+                configuration.
+              </p>
+            )}
+          </div>
+          <div className="flex justify-end gap-3">
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => void publishClassResults()}
+              disabled={classPublishBusy}
+            >
+              {classPublishBusy ? "Publishing..." : "Publish"}
+            </AlertDialogAction>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Email Notification Dialog */}
+      <AlertDialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Send result email</AlertDialogTitle>
+            <AlertDialogDescription>
+              Send a result notification to {student?.full_name}'s parent or guardian.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="parent-email">Parent email address</Label>
+              <Input
+                id="parent-email"
+                type="email"
+                placeholder="parent@example.com"
+                value={parentEmail}
+                onChange={(e) => setParentEmail(e.target.value)}
+                disabled={emailBusy}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              The email will notify the parent that their child's result is available on the
+              portal. They must log in to view full details.
+            </p>
+          </div>
+          <div className="flex justify-end gap-3">
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => void sendResultEmail()}
+              disabled={!parentEmail.trim() || emailBusy}
+            >
+              <Send className="mr-2 size-4" />
+              {emailBusy ? "Sending..." : "Send email"}
+            </AlertDialogAction>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppShell>
   );
 }

@@ -2,7 +2,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { getSessionSafely } from "@/integrations/supabase/auth-helper";
+import { getValidatedSession, userHasAnyRole } from "@/integrations/supabase/auth-helper";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { logAudit, useCorrections, useProfile } from "@/lib/data";
@@ -10,20 +10,12 @@ import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/approvals")({
   beforeLoad: async () => {
-    const session = await getSessionSafely();
+    const session = await getValidatedSession();
     if (!session?.user) throw redirect({ to: "/auth" });
 
-    const { data: roles, error } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", session.user.id);
-
-    if (error) throw error;
-
-    const isManager = (roles ?? []).some(
-      (row) => row.role === "admin" || row.role === "head_teacher",
-    );
-    if (!isManager) throw redirect({ to: "/dashboard" });
+    if (!(await userHasAnyRole(session.user.id, ["admin", "head_teacher"]))) {
+      throw redirect({ to: "/dashboard" });
+    }
   },
   head: () => ({
     meta: [
@@ -48,7 +40,7 @@ function ApprovalsPage() {
   );
 
   async function decide(id: string, status: "approved" | "rejected") {
-    const session = await getSessionSafely();
+    const session = await getValidatedSession();
     const { error } = await supabase
       .from("correction_requests")
       .update({

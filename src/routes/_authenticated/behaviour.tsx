@@ -1,9 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { getSessionSafely } from "@/integrations/supabase/auth-helper";
+import { getValidatedSession } from "@/integrations/supabase/auth-helper";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -13,6 +13,10 @@ import { useSync } from "@/lib/offline";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/behaviour")({
+  beforeLoad: async () => {
+    const session = await getValidatedSession();
+    if (!session?.user) throw redirect({ to: "/auth" });
+  },
   head: () => ({
     meta: [
       { title: "Behaviour assessment — MayDan EduRecord" },

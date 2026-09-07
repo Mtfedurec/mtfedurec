@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
-import { getSessionSafely } from "@/integrations/supabase/auth-helper";
+import { getValidatedSession, userHasAnyRole } from "@/integrations/supabase/auth-helper";
 import { logAudit, useClasses, useSubjects, useStaff, useStudents } from "@/lib/data";
 
 import { AppShell } from "@/components/app-shell";
@@ -14,18 +14,12 @@ import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/_authenticated/classes")({
   beforeLoad: async () => {
-    const session = await getSessionSafely();
+    const session = await getValidatedSession();
     if (!session?.user) throw redirect({ to: "/auth" });
 
-    const { data: roles, error } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", session.user.id);
-
-    if (error) throw error;
-
-    const isAdmin = (roles ?? []).some((row) => row.role === "admin");
-    if (!isAdmin) throw redirect({ to: "/dashboard" });
+    if (!(await userHasAnyRole(session.user.id, ["admin"]))) {
+      throw redirect({ to: "/dashboard" });
+    }
   },
   head: () => ({
     meta: [

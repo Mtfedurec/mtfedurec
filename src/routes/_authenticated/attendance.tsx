@@ -1,11 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { format, parseISO, subDays } from "date-fns";
 import { Calendar, Clock, Lock, RefreshCw, Search } from "lucide-react";
 
-import { getSessionSafely } from "@/integrations/supabase/auth-helper";
+import { supabase } from "@/integrations/supabase/client";
+import { getValidatedSession } from "@/integrations/supabase/auth-helper";
 import { AppShell, StatCard } from "@/components/app-shell";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +29,10 @@ import { useSync } from "@/lib/offline";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/attendance")({
+  beforeLoad: async () => {
+    const session = await getValidatedSession();
+    if (!session?.user) throw redirect({ to: "/auth" });
+  },
   head: () => ({
     meta: [
       {
