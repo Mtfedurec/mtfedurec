@@ -262,42 +262,49 @@ function DailyRegister() {
 
     setSaving(true);
 
-    /*
-     * Read the locally persisted session.
-     *
-     * This supports offline-capable authentication
-     * without forcing a network request, exactly like the
-     * original register. `recorded_by` is null only when no
-     * session is available at all.
-     */
-    const session = await getSessionSafely();
+    try {
+      /*
+       * Read the locally persisted session.
+       *
+       * This supports offline-capable authentication
+       * without forcing a network request, exactly like the
+       * original register. `recorded_by` is null only when no
+       * session is available at all.
+       */
+      const session = await getSessionSafely();
 
-    const rows = entries.map(([student_id, status]) => ({
-      student_id,
-      class_id: classId,
-      attendance_date: date,
-      status,
-      state: "submitted",
-      recorded_by: session?.user.id ?? null,
-    }));
+      const rows = entries.map(([student_id, status]) => ({
+        student_id,
+        class_id: classId,
+        attendance_date: date,
+        status,
+        state: "submitted",
+        recorded_by: session?.user.id ?? null,
+      }));
 
-    const result = await save({
-      table: "attendance",
-      rows,
-      onConflict: "student_id,attendance_date",
-      label: `Attendance ${date}`,
-    });
-
-    setSaving(false);
-
-    if (result === "synced") {
-      toast.success("Attendance saved");
-
-      void logAudit("attendance.submitted", classId, `${rows.length} records for ${date}`);
-
-      void queryClient.invalidateQueries({
-        queryKey: ["attendance"],
+      const result = await save({
+        table: "attendance",
+        rows,
+        onConflict: "student_id,attendance_date",
+        label: `Attendance ${date}`,
       });
+
+      if (result === "synced" || result === "queued") {
+        if (result === "synced") {
+          toast.success("Attendance saved");
+        }
+
+        void logAudit("attendance.submitted", classId, `${rows.length} records for ${date}`);
+
+        void queryClient.invalidateQueries({
+          queryKey: ["attendance"],
+        });
+      }
+    } catch (err) {
+      console.error("Attendance submission error:", err);
+      toast.error("An unexpected error occurred while saving attendance.");
+    } finally {
+      setSaving(false);
     }
   }
 

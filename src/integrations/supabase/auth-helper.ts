@@ -10,34 +10,29 @@ import { supabase } from "./client";
 
 export async function getValidatedSession() {
   try {
-    const [{ data: sessionData, error: sessionError }, { data: userData, error: userError }] =
-      await Promise.all([supabase.auth.getSession(), supabase.auth.getUser()]);
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
 
-    if (sessionError) {
-      throw sessionError;
-    }
-
-    if (userError) {
-      throw userError;
+    if (sessionError || !sessionData.session) {
+      return null;
     }
 
     const session = sessionData.session;
-    const user = userData.user;
-
-    if (!session || !user) {
-      await supabase.auth.signOut({ scope: "global" }).catch(() => undefined);
-      return null;
+    
+    // Attempt to verify user, but do not sign out on network error.
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    
+    // Only invalidate if the auth server says the user is unauthorized/missing
+    if (userError || !userData?.user || session.user.id !== userData.user.id) {
+       // Check if it's a 401 Unauthorized (invalid session)
+       if (userError && (userError as any).status === 401) {
+         await supabase.auth.signOut({ scope: "global" }).catch(() => undefined);
+       }
+       return null;
     }
 
-    if (session.user.id !== user.id) {
-      await supabase.auth.signOut({ scope: "global" }).catch(() => undefined);
-      return null;
-    }
-
-    return { session, user };
+    return { session, user: userData.user };
   } catch (error) {
-    console.warn("Invalid or expired Supabase session detected; clearing session.", error);
-    await supabase.auth.signOut({ scope: "global" }).catch(() => undefined);
+    console.warn("Session validation encountered an error:", error);
     return null;
   }
 }

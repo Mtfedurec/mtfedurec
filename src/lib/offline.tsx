@@ -158,8 +158,11 @@ function isPermanentPolicyError(error: unknown): boolean {
 
   return (
     e.code === "42501" ||
+    e.code === "42P01" ||
+    e.code === "42703" ||
     blob.includes("row-level security") ||
-    blob.includes("violates row-level security")
+    blob.includes("violates row-level security") ||
+    blob.includes("policy")
   );
 }
 
@@ -527,11 +530,23 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         /*
          * Upload immediately.
          */
+        if (entry.table === "attendance") {
+          console.log("[ATTENDANCE_DIAGNOSTIC] Operation:", "upsert");
+          console.log("[ATTENDANCE_DIAGNOSTIC] Payload:", entry.rows);
+          console.log("[ATTENDANCE_DIAGNOSTIC] onConflict:", entry.onConflict);
+        }
+
         const { error } = await supabase.from(entry.table as never).upsert(entry.rows as never, {
           onConflict: entry.onConflict,
         });
 
         if (error) {
+          if (entry.table === "attendance") {
+            console.error("[ATTENDANCE_DIAGNOSTIC] Supabase error.message:", error.message);
+            console.error("[ATTENDANCE_DIAGNOSTIC] Supabase error.code:", (error as any).code);
+            console.error("[ATTENDANCE_DIAGNOSTIC] Supabase error.details:", (error as any).details);
+            console.error("[ATTENDANCE_DIAGNOSTIC] Supabase error.hint:", (error as any).hint);
+          }
           throw error;
         }
 

@@ -55,7 +55,7 @@ CREATE POLICY "staff insert attendance (today only)"
   TO authenticated
   WITH CHECK (
     public.is_staff(auth.uid())
-    AND NEW.attendance_date = public.current_school_date()
+    AND attendance_date = public.current_school_date()
   );
 
 -- 3) UPDATE policy: staff may update attendance ONLY for today.
@@ -85,7 +85,7 @@ CREATE POLICY "staff update attendance (today only)"
   USING (public.is_staff(auth.uid()))
   WITH CHECK (
     public.is_staff(auth.uid())
-    AND NEW.attendance_date = public.current_school_date()
+    AND attendance_date = public.current_school_date()
   );
 
 -- 4) SELECT (history) policy is intentionally UNCHANGED.

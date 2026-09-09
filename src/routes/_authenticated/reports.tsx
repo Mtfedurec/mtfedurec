@@ -43,10 +43,9 @@ export const Route = createFileRoute("/_authenticated/reports")({
       .select("role")
       .eq("user_id", session.user.id);
 
-    if (error) throw error;
-
-    const isStaff = (roles ?? []).length > 0;
-    if (!isStaff) throw redirect({ to: "/dashboard" });
+    if (!error && roles && roles.length === 0) {
+      throw redirect({ to: "/dashboard" });
+    }
   },
   head: () => ({
     meta: [

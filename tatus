@@ -1,0 +1,41 @@
+warning: in the working copy of 'src/lib/offline.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'supabase/migrations/20260831120000_attendance_date_lock.sql', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/src/lib/offline.tsx b/src/lib/offline.tsx[m
+[1mindex 8681956..82b6c2b 100644[m
+[1m--- a/src/lib/offline.tsx[m
+[1m+++ b/src/lib/offline.tsx[m
+[36m@@ -158,8 +158,11 @@[m [mfunction isPermanentPolicyError(error: unknown): boolean {[m
+ [m
+   return ([m
+     e.code === "42501" ||[m
+[32m+[m[32m    e.code === "42P01" ||[m
+[32m+[m[32m    e.code === "42703" ||[m
+     blob.includes("row-level security") ||[m
+[31m-    blob.includes("violates row-level security")[m
+[32m+[m[32m    blob.includes("violates row-level security") ||[m
+[32m+[m[32m    blob.includes("policy")[m
+   );[m
+ }[m
+ [m
+[1mdiff --git a/supabase/migrations/20260831120000_attendance_date_lock.sql b/supabase/migrations/20260831120000_attendance_date_lock.sql[m
+[1mindex bb26300..f17c8ea 100644[m
+[1m--- a/supabase/migrations/20260831120000_attendance_date_lock.sql[m
+[1m+++ b/supabase/migrations/20260831120000_attendance_date_lock.sql[m
+[36m@@ -55,7 +55,7 @@[m [mCREATE POLICY "staff insert attendance (today only)"[m
+   TO authenticated[m
+   WITH CHECK ([m
+     public.is_staff(auth.uid())[m
+[31m-    AND NEW.attendance_date = public.current_school_date()[m
+[32m+[m[32m    AND attendance_date = public.current_school_date()[m
+   );[m
+ [m
+ -- 3) UPDATE policy: staff may update attendance ONLY for today.[m
+[36m@@ -85,7 +85,7 @@[m [mCREATE POLICY "staff update attendance (today only)"[m
+   USING (public.is_staff(auth.uid()))[m
+   WITH CHECK ([m
+     public.is_staff(auth.uid())[m
+[31m-    AND NEW.attendance_date = public.current_school_date()[m
+[32m+[m[32m    AND attendance_date = public.current_school_date()[m
+   );[m
+ [m
+ -- 4) SELECT (history) policy is intentionally UNCHANGED.[m
