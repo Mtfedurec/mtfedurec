@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getValidatedSession } from "@/integrations/supabase/auth-helper";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  CalendarCheck,
+  
   ClipboardList,
   ShieldCheck,
   Users,
@@ -33,7 +33,6 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 });
 
 const QUICK = [
-  { to: "/attendance", label: "Take attendance", icon: CalendarCheck },
   { to: "/assessment", label: "Enter scores", icon: ClipboardList },
   { to: "/reports", label: "Report cards", icon: FileText },
   { to: "/students", label: "Students", icon: Users },
@@ -47,18 +46,6 @@ function Dashboard() {
   const currentTerm = terms.find((t) => (t as { is_current: boolean }).is_current) as
     { id: string; name: string; academic_sessions?: { name: string } | null } | undefined;
 
-  const today = new Date().toISOString().slice(0, 10);
-
-  const { data: todayAttendance = 0 } = useQuery({
-    queryKey: ["attendance-count", today],
-    queryFn: async () => {
-      const { count } = await supabase
-        .from("attendance")
-        .select("id", { count: "exact", head: true })
-        .eq("attendance_date", today);
-      return count ?? 0;
-    },
-  });
 
   const { data: pending = 0 } = useQuery({
     queryKey: ["pending-corrections"],
@@ -92,12 +79,6 @@ function Dashboard() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Active students" value={students.length} icon={Users} />
         <StatCard label="Classes" value={classes.length} icon={GraduationCap} />
-        <StatCard
-          label="Attendance today"
-          value={todayAttendance}
-          hint="records saved"
-          icon={CalendarCheck}
-        />
         <StatCard
           label="Pending approvals"
           value={pending}

@@ -61,6 +61,7 @@ function StudentsPage() {
     class_id: "",
     guardian_name: "",
     guardian_phone: "",
+    guardian_email: "",
   });
   const [busy, setBusy] = useState(false);
 
@@ -82,6 +83,7 @@ function StudentsPage() {
     const { error } = await supabase.from("students").insert({
       ...form,
       class_id: form.class_id || null,
+      guardian_email: form.guardian_email.trim() || null,
     });
     setBusy(false);
     if (error) {
@@ -97,6 +99,7 @@ function StudentsPage() {
       class_id: "",
       guardian_name: "",
       guardian_phone: "",
+      guardian_email: "",
     });
     void queryClient.invalidateQueries({ queryKey: ["students"] });
   }
@@ -156,7 +159,7 @@ function StudentsPage() {
       setImportBusy(true);
       setImportStep("importing");
 
-      const { error } = await supabase.from("students").insert(importPreview.validRows);
+      const { error } = await supabase.from("students").insert(importPreview.validRows as any);
 
       if (error) {
         toast.error(`Import failed: ${error.message}`);
@@ -257,6 +260,16 @@ function StudentsPage() {
             onChange={(e) => setForm({ ...form, guardian_phone: e.target.value })}
           />
         </div>
+        <div className="space-y-2">
+          <Label htmlFor="guardian_email">Guardian email</Label>
+          <Input
+            id="guardian_email"
+            type="email"
+            placeholder="parent@example.com"
+            value={form.guardian_email}
+            onChange={(e) => setForm({ ...form, guardian_email: e.target.value })}
+          />
+        </div>
         <div className="sm:col-span-2 lg:col-span-3">
           <Button type="submit" disabled={busy}>
             Admit student
@@ -314,6 +327,7 @@ function StudentsPage() {
                 full_name: string;
                 admission_number: string;
                 guardian_name: string | null;
+                guardian_email: string | null;
                 classes?: { name: string } | null;
               };
               return (
@@ -322,7 +336,10 @@ function StudentsPage() {
                   <td className="px-3 py-2 text-muted-foreground">{student.admission_number}</td>
                   <td className="px-3 py-2">{student.classes?.name ?? "—"}</td>
                   <td className="px-4 py-2 text-muted-foreground">
-                    {student.guardian_name ?? "—"}
+                    <div>{student.guardian_name ?? "—"}</div>
+                    {student.guardian_email && (
+                      <div className="text-xs text-muted-foreground/80">{student.guardian_email}</div>
+                    )}
                   </td>
                 </tr>
               );

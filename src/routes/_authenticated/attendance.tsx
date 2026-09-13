@@ -1,772 +1,415 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMemo, useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { format, parseISO, subDays } from "date-fns";
-import { Calendar, Clock, Lock, RefreshCw, Search } from "lucide-react";
+import { CheckCircle2, XCircle, Lock, Save, Users, History, CalendarCheck } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
-import { getValidatedSession } from "@/integrations/supabase/auth-helper";
-import { AppShell, StatCard } from "@/components/app-shell";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
+import { getValidatedSession, userHasAnyRole } from "@/integrations/supabase/auth-helper";
+import { useClasses, useProfile, useStudents } from "@/lib/data";
+
+import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-import {
-  useAttendance,
-  useAttendanceHistory,
-  useClasses,
-  useStudents,
-  logAudit,
-  type AttendanceHistoryRow,
-} from "@/lib/data";
-
-import { useSync } from "@/lib/offline";
-import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export const Route = createFileRoute("/_authenticated/attendance")({
   beforeLoad: async () => {
     const session = await getValidatedSession();
     if (!session?.user) throw redirect({ to: "/auth" });
+
+    if (!(await userHasAnyRole(session.user.id, ["admin", "head_teacher", "teacher"]))) {
+      throw redirect({ to: "/dashboard" });
+    }
   },
   head: () => ({
     meta: [
-      {
-        title: "Attendance — MayDan EduRecord",
-      },
-      {
-        name: "description",
-        content:
-          "Mark daily class attendance as present, absent or late, even without internet. View historical attendance by class and date range.",
-      },
-      {
-        property: "og:title",
-        content: "Attendance — MayDan EduRecord",
-      },
-      {
-        property: "og:description",
-        content: "Offline-capable daily attendance register with history.",
-      },
+      { title: "Student Attendance — MayDan EduRecord" },
+      { name: "description", content: "Daily student register and punctuality tracking." },
     ],
   }),
   component: AttendancePage,
 });
 
-type Status = "present" | "absent" | "late";
-
-const STATUSES: Status[] = ["present", "absent", "late"];
-
-type ClassItem = {
-  id: string;
-  name: string;
-};
-
-type StudentItem = {
-  id: string;
-  full_name: string;
-  admission_number: string;
-};
-
-type AttendanceRow = {
-  student_id: string;
-  status: Status;
-};
-
-type AttendanceSummary = {
-  present: number;
-  late: number;
-  absent: number;
-  recorded: number;
-  percentage: number | null;
-};
-
-/*
- * Calendar-date helpers.
- *
- * `attendance_date` is a DATE column (calendar date, not a timestamp),
- * so all comparisons use plain "yyyy-MM-dd" strings. This avoids the
- * UTC-shifting bug that `new Date("yyyy-MM-dd")` / toISOString would
- * introduce for a school in the Africa/Lagos timezone.
- */
-function useToday(): string {
-  return useMemo(() => format(new Date(), "yyyy-MM-dd"), []);
-}
-
-function summarizeAttendance(rows: AttendanceHistoryRow[]): AttendanceSummary {
-  const present = rows.filter((r) => r.status === "present").length;
-  const late = rows.filter((r) => r.status === "late").length;
-  const absent = rows.filter((r) => r.status === "absent").length;
-  const recorded = present + late + absent;
-
-  if (recorded === 0) {
-    return { present, late, absent, recorded, percentage: null };
-  }
-
-  // present counts fully, late counts as 0.5 present, absent counts 0.
-  const percentage = ((present + 0.5 * late) / recorded) * 100;
-
-  return { present, late, absent, recorded, percentage };
-}
-
-function statusVariant(status: Status): "default" | "secondary" | "destructive" {
-  if (status === "present") return "default";
-  if (status === "late") return "secondary";
-  return "destructive";
-}
-
-function StatusBadge({ status }: { status: Status }) {
-  return (
-    <Badge
-      variant={statusVariant(status)}
-      className={cn(
-        "capitalize",
-        status === "present" && "border-success bg-success text-success-foreground",
-        status === "late" && "border-warning bg-warning text-warning-foreground",
-        status === "absent" && "border-destructive bg-destructive text-destructive-foreground",
-      )}
-    >
-      {status}
-    </Badge>
-  );
-}
-
-/* =========================================================
- * DAILY REGISTER TAB
- * ========================================================= */
-
-function DailyRegister() {
-  /* ---------------------------------------------------------
-   * DATA
-   * --------------------------------------------------------- */
-
-  const { data: classes = [] } = useClasses();
-
-  const [classId, setClassId] = useState("");
-
-  const today = useToday();
-
-  const [date, setDate] = useState(today);
-
-  const { data: students = [] } = useStudents(classId || undefined);
-
-  const { data: existing = [] } = useAttendance(classId || undefined, date);
-
-  const { save } = useSync();
-
+function AttendancePage() {
   const queryClient = useQueryClient();
-
-  const [marks, setMarks] = useState<Record<string, Status>>({});
-
-  const [saving, setSaving] = useState(false);
-
-  /* ---------------------------------------------------------
-   * INITIAL CLASS
-   * --------------------------------------------------------- */
-
-  useEffect(() => {
-    if (classes.length > 0 && !classId) {
-      setClassId((classes[0] as ClassItem).id);
-    }
-  }, [classes, classId]);
-
-  /* ---------------------------------------------------------
-   * LOCK STATE
-   * --------------------------------------------------------- */
-
-  const isToday = date === today;
-  const isPast = Boolean(date) && date < today;
-  const isFuture = Boolean(date) && date > today;
-
-  /*
-   * Only the current school day is editable.
-   *  - Past dates are permanently locked (read-only).
-   *  - Future dates cannot be recorded at all.
-   */
-  const readOnly = !isToday;
-
-  /* ---------------------------------------------------------
-   * LOAD EXISTING ATTENDANCE
-   * --------------------------------------------------------- */
-
-  useEffect(() => {
-    const next: Record<string, Status> = {};
-
-    for (const row of existing as AttendanceRow[]) {
-      next[row.student_id] = row.status;
-    }
-
-    setMarks(next);
-  }, [existing]);
-
-  /* ---------------------------------------------------------
-   * SUMMARY
-   * --------------------------------------------------------- */
-
-  const summary = useMemo(() => {
-    const values = Object.values(marks);
-
-    return {
-      present: values.filter((value) => value === "present").length,
-      absent: values.filter((value) => value === "absent").length,
-      late: values.filter((value) => value === "late").length,
-      unmarked: students.length - values.length,
-    };
-  }, [marks, students.length]);
-
-  /* ---------------------------------------------------------
-   * MARK ALL
-   * --------------------------------------------------------- */
-
-  function markAll(status: Status) {
-    const next: Record<string, Status> = {};
-
-    for (const student of students as StudentItem[]) {
-      next[student.id] = status;
-    }
-
-    setMarks(next);
-  }
-
-  /* ---------------------------------------------------------
-   * SUBMIT ATTENDANCE
-   * --------------------------------------------------------- */
-
-  async function submit() {
-    if (!classId) return;
-    if (!date) return;
-
-    /*
-     * Defence in depth: the database enforces the date lock via RLS,
-     * and the UI disables saving for non-today dates, but we also
-     * refuse to attempt a save for a locked or future date here.
-     */
-    if (readOnly) {
-      if (isFuture) {
-        toast.error("Attendance cannot be recorded for a future date.");
-      } else {
-        toast.error("Attendance for previous dates is locked and cannot be edited.");
-      }
-      return;
-    }
-
-    const entries = Object.entries(marks);
-
-    if (entries.length === 0) {
-      toast.error("Mark at least one student first.");
-      return;
-    }
-
-    setSaving(true);
-
-    try {
-      /*
-       * Read the locally persisted session.
-       *
-       * This supports offline-capable authentication
-       * without forcing a network request, exactly like the
-       * original register. `recorded_by` is null only when no
-       * session is available at all.
-       */
-      const session = await getSessionSafely();
-
-      const rows = entries.map(([student_id, status]) => ({
-        student_id,
-        class_id: classId,
-        attendance_date: date,
-        status,
-        state: "submitted",
-        recorded_by: session?.user.id ?? null,
-      }));
-
-      const result = await save({
-        table: "attendance",
-        rows,
-        onConflict: "student_id,attendance_date",
-        label: `Attendance ${date}`,
-      });
-
-      if (result === "synced" || result === "queued") {
-        if (result === "synced") {
-          toast.success("Attendance saved");
-        }
-
-        void logAudit("attendance.submitted", classId, `${rows.length} records for ${date}`);
-
-        void queryClient.invalidateQueries({
-          queryKey: ["attendance"],
-        });
-      }
-    } catch (err) {
-      console.error("Attendance submission error:", err);
-      toast.error("An unexpected error occurred while saving attendance.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  /* ---------------------------------------------------------
-   * UI
-   * --------------------------------------------------------- */
-
-  return (
-    <div className="space-y-4">
-      {/* ==================================================
-       * CLASS / DATE
-       * ================================================== */}
-
-      <div className="surface-card grid gap-4 p-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="cls">Class</Label>
-
-          <select
-            id="cls"
-            value={classId}
-            onChange={(event) => setClassId(event.target.value)}
-            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-          >
-            <option value="">Select class</option>
-
-            {classes.map((item) => {
-              const cls = item as ClassItem;
-
-              return (
-                <option key={cls.id} value={cls.id}>
-                  {cls.name}
-                </option>
-              );
-            })}
-          </select>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="date">Date</Label>
-
-          <Input
-            id="date"
-            type="date"
-            value={date}
-            max={today}
-            onChange={(event) => setDate(event.target.value)}
-          />
-        </div>
-      </div>
-
-      {/* ==================================================
-       * LOCK / FUTURE BANNER
-       * ================================================== */}
-
-      {isPast && (
-        <Alert variant="default" className="border-warning/40 bg-warning/10">
-          <Lock className="h-4 w-4 text-warning-foreground" />
-          <AlertTitle>Attendance for this date is locked</AlertTitle>
-          <AlertDescription>
-            Previous attendance records cannot be edited after the day has passed.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {isFuture && (
-        <Alert variant="default" className="border-destructive/40 bg-destructive/10">
-          <Clock className="h-4 w-4 text-destructive" />
-          <AlertTitle>Attendance cannot be recorded for a future date</AlertTitle>
-          <AlertDescription>
-            Select today's date to enter attendance. Future dates are not editable.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* ==================================================
-       * CONTROLS / SUMMARY
-       * ================================================== */}
-
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={() => markAll("present")}
-          disabled={saving || students.length === 0 || readOnly}
-        >
-          Mark all present
-        </Button>
-
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => setMarks({})}
-          disabled={saving || readOnly}
-        >
-          Clear
-        </Button>
-
-        <span className="text-xs text-muted-foreground">
-          {summary.present} present · {summary.absent} absent · {summary.late} late ·{" "}
-          {summary.unmarked} unmarked
-        </span>
-      </div>
-
-      {/* ==================================================
-       * STUDENT REGISTER
-       * ================================================== */}
-
-      <div className="surface-card divide-y divide-border">
-        {students.length === 0 && (
-          <p className="p-4 text-sm text-muted-foreground">No active students in this class.</p>
-        )}
-
-        {students.map((item) => {
-          const student = item as StudentItem;
-
-          return (
-            <div key={student.id} className="flex flex-wrap items-center justify-between gap-3 p-3">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium">{student.full_name}</p>
-
-                <p className="text-xs text-muted-foreground">{student.admission_number}</p>
-              </div>
-
-              <div className="flex gap-1">
-                {STATUSES.map((status) => (
-                  <button
-                    key={status}
-                    type="button"
-                    disabled={saving || readOnly}
-                    onClick={() =>
-                      setMarks((current) => ({
-                        ...current,
-                        [student.id]: status,
-                      }))
-                    }
-                    className={cn(
-                      "rounded-md border px-3 py-1.5 text-xs font-semibold capitalize transition-colors",
-                      marks[student.id] === status
-                        ? status === "present"
-                          ? "border-success bg-success text-success-foreground"
-                          : status === "late"
-                            ? "border-warning bg-warning text-warning-foreground"
-                            : "border-destructive bg-destructive text-destructive-foreground"
-                        : "border-input bg-background text-muted-foreground hover:bg-secondary",
-                      readOnly && "cursor-not-allowed opacity-60",
-                    )}
-                  >
-                    {status}
-                  </button>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* ==================================================
-       * SAVE
-       * ================================================== */}
-
-      <Button
-        onClick={() => void submit()}
-        disabled={saving || students.length === 0 || !classId || !date || !isToday}
-      >
-        {saving ? "Saving..." : "Save attendance"}
-      </Button>
-    </div>
-  );
-}
-
-/* =========================================================
- * HISTORY TAB
- * ========================================================= */
-
-function AttendanceHistory() {
-  /* ---------------------------------------------------------
-   * DATA
-   * --------------------------------------------------------- */
-
-  const { data: classes = [] } = useClasses();
-
-  const [classId, setClassId] = useState("");
-
-  const today = useToday();
-
-  const [startDate, setStartDate] = useState(format(subDays(new Date(), 30), "yyyy-MM-dd"));
-  const [endDate, setEndDate] = useState(today);
-
-  const [studentSearch, setStudentSearch] = useState("");
-
-  const {
-    data: raw = [],
-    isLoading,
-    isError,
-    error,
-    refetch,
-  } = useAttendanceHistory(classId || undefined, startDate || undefined, endDate || undefined);
-
-  const rows = (raw as AttendanceHistoryRow[]).filter((row) => {
-    const needle = studentSearch.toLowerCase().trim();
-    if (!needle) return true;
-
-    const name = (row.students?.full_name ?? "").toLowerCase();
-    const admission = (row.students?.admission_number ?? "").toLowerCase();
-
-    return name.includes(needle) || admission.includes(needle);
+  const { data: profile } = useProfile();
+  const { data: allClasses = [] } = useClasses();
+  const { data: allStudents = [] } = useStudents();
+
+  const roles = profile?.roles ?? [];
+  const isAdmin = roles.includes("admin") || roles.includes("head_teacher");
+
+  const todayLagos = useMemo(() => {
+    return new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Lagos" });
+  }, []);
+
+  const [selectedClassId, setSelectedClassId] = useState<string>("");
+  const [selectedDate, setSelectedDate] = useState<string>(todayLagos);
+  const [attendanceMap, setAttendanceMap] = useState<Record<string, "present" | "absent">>({});
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<string | null>(null);
+  const [historyStudentId, setHistoryStudentId] = useState<string>("");
+
+  const { data: assignedClassIds = [] } = useQuery({
+    queryKey: ["teacher-assigned-classes", profile?.id],
+    enabled: Boolean(profile?.id && !isAdmin),
+    queryFn: async () => {
+      const userId = profile!.id;
+      const { data: directClasses } = await supabase
+        .from("classes")
+        .select("id")
+        .eq("class_teacher_id", userId);
+
+      const { data: subjectClasses } = await supabase
+        .from("class_subjects")
+        .select("class_id")
+        .eq("teacher_id", userId);
+
+      const ids = new Set<string>();
+      directClasses?.forEach((c) => ids.add(c.id));
+      subjectClasses?.forEach((sc) => sc.class_id && ids.add(sc.class_id));
+      return Array.from(ids);
+    },
   });
 
-  /* ---------------------------------------------------------
-   * INITIAL CLASS
-   * --------------------------------------------------------- */
+  const availableClasses = useMemo(() => {
+    if (isAdmin) return allClasses;
+    return allClasses.filter((c) => assignedClassIds.includes(c.id));
+  }, [allClasses, assignedClassIds, isAdmin]);
 
   useEffect(() => {
-    if (classes.length > 0 && !classId) {
-      setClassId((classes[0] as ClassItem).id);
+    if (!selectedClassId && availableClasses.length > 0) {
+      setSelectedClassId(availableClasses[0].id);
     }
-  }, [classes, classId]);
+  }, [availableClasses, selectedClassId]);
 
-  /* ---------------------------------------------------------
-   * SUMMARY
-   * --------------------------------------------------------- */
+  const classStudents = useMemo(() => {
+    if (!selectedClassId) return [];
+    return allStudents.filter((s) => s.class_id === selectedClassId && s.status === "active");
+  }, [allStudents, selectedClassId]);
 
-  const summary = useMemo(() => summarizeAttendance(rows), [rows]);
+  const { data: existingAttendance = [], refetch: refetchAttendance } = useQuery({
+    queryKey: ["student-attendance", selectedClassId, selectedDate],
+    enabled: Boolean(selectedClassId && selectedDate),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("student_attendance")
+        .select("*")
+        .eq("class_id", selectedClassId)
+        .eq("attendance_date", selectedDate);
 
-  /*
-   * When the search uniquely identifies a single student, show that
-   * student's compact history summary instead of the aggregate.
-   */
-  const studentIds = useMemo(() => Array.from(new Set(rows.map((row) => row.student_id))), [rows]);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
 
-  const studentSearchActive = studentSearch.trim().length > 0;
-  const focusedStudentId = studentSearchActive && studentIds.length === 1 ? studentIds[0] : null;
+  useEffect(() => {
+    const map: Record<string, "present" | "absent"> = {};
+    classStudents.forEach((student) => {
+      const found = existingAttendance.find((att) => att.student_id === student.id);
+      map[student.id] = found ? (found.status as "present" | "absent") : "present";
+    });
+    setAttendanceMap(map);
+  }, [classStudents, existingAttendance]);
 
-  const focusedStudent = focusedStudentId
-    ? rows.find((row) => row.student_id === focusedStudentId)
-    : null;
+  const isHistorical = selectedDate < todayLagos;
+  const presentCount = Object.values(attendanceMap).filter((v) => v === "present").length;
+  const absentCount = Object.values(attendanceMap).filter((v) => v === "absent").length;
 
-  /* ---------------------------------------------------------
-   * UI
-   * --------------------------------------------------------- */
+  const handleStatusChange = (studentId: string, status: "present" | "absent") => {
+    if (isHistorical) return;
+    setAttendanceMap((prev) => ({ ...prev, [studentId]: status }));
+  };
+
+  const handleMarkAllPresent = () => {
+    if (isHistorical) return;
+    const map: Record<string, "present" | "absent"> = {};
+    classStudents.forEach((s) => {
+      map[s.id] = "present";
+    });
+    setAttendanceMap(map);
+    toast.success("All students marked present");
+  };
+
+  const handleSaveAttendance = async () => {
+    if (isHistorical) {
+      toast.error("Cannot modify historical attendance. Records are locked.");
+      return;
+    }
+    if (!selectedClassId) {
+      toast.error("Please select a class first.");
+      return;
+    }
+
+    setIsSaving(true);
+    setSaveStatus("Saving...");
+
+    try {
+      const payload = classStudents.map((student) => ({
+        student_id: student.id,
+        class_id: selectedClassId,
+        attendance_date: selectedDate,
+        status: attendanceMap[student.id] || "present",
+        recorded_by: profile?.id || null,
+      }));
+
+      const { error } = await supabase
+        .from("student_attendance")
+        .upsert(payload, { onConflict: "student_id,attendance_date" });
+
+      if (error) throw error;
+
+      setSaveStatus("Saved successfully");
+      toast.success("Attendance saved successfully");
+      queryClient.invalidateQueries({ queryKey: ["student-attendance"] });
+      queryClient.invalidateQueries({ queryKey: ["student-attendance-history"] });
+      refetchAttendance();
+    } catch (err: any) {
+      const msg = err.message || "Failed to save attendance";
+      setSaveStatus(`Error: ${msg}`);
+      toast.error(msg);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const { data: historyRecords = [], isLoading: historyLoading } = useQuery({
+    queryKey: ["student-attendance-history", historyStudentId],
+    enabled: Boolean(historyStudentId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("student_attendance")
+        .select("*, classes(name)")
+        .eq("student_id", historyStudentId)
+        .order("attendance_date", { ascending: false });
+
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const historyStats = useMemo(() => {
+    const total = historyRecords.length;
+    if (total === 0) return { total: 0, present: 0, absent: 0, percentage: 0 };
+    const present = historyRecords.filter((r) => r.status === "present").length;
+    const absent = historyRecords.filter((r) => r.status === "absent").length;
+    return { total, present, absent, percentage: Number(((present / total) * 100).toFixed(1)) };
+  }, [historyRecords]);
+
+  const historyAvailableStudents = useMemo(() => {
+    if (isAdmin) return allStudents;
+    return allStudents.filter((s) => s.class_id && assignedClassIds.includes(s.class_id));
+  }, [allStudents, assignedClassIds, isAdmin]);
+
 
   return (
-    <div className="space-y-4">
-      {/* ==================================================
-       * FILTERS
-       * ================================================== */}
-
-      <div className="surface-card grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="space-y-2">
-          <Label htmlFor="h-class">Class</Label>
-          <select
-            id="h-class"
-            value={classId}
-            onChange={(event) => setClassId(event.target.value)}
-            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-          >
-            <option value="">Select class</option>
-            {classes.map((item) => {
-              const cls = item as ClassItem;
-              return (
-                <option key={cls.id} value={cls.id}>
-                  {cls.name}
-                </option>
-              );
-            })}
-          </select>
+    <AppShell>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Student Attendance</h1>
+          <p className="text-muted-foreground">Manage daily attendance and view history.</p>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="h-from">From</Label>
-          <Input
-            id="h-from"
-            type="date"
-            value={startDate}
-            max={endDate}
-            onChange={(event) => setStartDate(event.target.value)}
-          />
-        </div>
+        <Tabs defaultValue="register" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="register" className="gap-2">
+              <CalendarCheck className="h-4 w-4" /> Daily Register
+            </TabsTrigger>
+            <TabsTrigger value="history" className="gap-2">
+              <History className="h-4 w-4" /> Attendance Records
+            </TabsTrigger>
+          </TabsList>
 
-        <div className="space-y-2">
-          <Label htmlFor="h-to">To</Label>
-          <Input
-            id="h-to"
-            type="date"
-            value={endDate}
-            min={startDate}
-            max={today}
-            onChange={(event) => setEndDate(event.target.value)}
-          />
-        </div>
+          <TabsContent value="register" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Daily Register Controls</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Class</Label>
+                  <Select value={selectedClassId} onValueChange={setSelectedClassId}>
+                    <SelectTrigger><SelectValue placeholder="Select class..." /></SelectTrigger>
+                    <SelectContent>
+                      {availableClasses.map((cls) => (
+                        <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Date (Africa/Lagos)</Label>
+                  <div className="flex gap-2">
+                    <Input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
+                    <Button variant="outline" onClick={() => setSelectedDate(todayLagos)}>Today</Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-        <div className="space-y-2">
-          <Label htmlFor="h-search">Student search</Label>
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              id="h-search"
-              placeholder="Name or admission number"
-              value={studentSearch}
-              onChange={(event) => setStudentSearch(event.target.value)}
-              className="pl-8"
-            />
-          </div>
-        </div>
-      </div>
+            {isHistorical && (
+              <div className="flex items-center gap-3 rounded-lg border border-amber-500/50 bg-amber-500/10 p-4 text-amber-950">
+                <Lock className="h-5 w-5 text-amber-600" />
+                <div className="text-sm font-medium">Historical Attendance Locked: Date is read-only.</div>
+              </div>
+            )}
 
-      {/* ==================================================
-       * PER- STUDENT COMPACT SUMMARY
-       * ================================================== */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" /> Roster ({classStudents.length})</CardTitle>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2 text-sm">
+                    <Badge className="bg-emerald-600">Present: {presentCount}</Badge>
+                    <Badge variant="destructive">Absent: {absentCount}</Badge>
+                  </div>
+                  {!isHistorical && (
+                    <Button variant="outline" size="sm" onClick={handleMarkAllPresent}>Mark All Present</Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {classStudents.length === 0 ? (
+                  <div className="py-12 text-center text-muted-foreground">No active students.</div>
+                ) : (
+                  <div className="space-y-4">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[80px]">S/N</TableHead>
+                          <TableHead>Student Name</TableHead>
+                          <TableHead className="text-right">Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {classStudents.map((s, idx) => {
+                          const status = attendanceMap[s.id] || "present";
+                          return (
+                            <TableRow key={s.id}>
+                              <TableCell>{idx + 1}</TableCell>
+                              <TableCell className="font-medium">{s.full_name}</TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end gap-2">
+                                  <Button size="sm" variant={status === "present" ? "default" : "outline"} className={status === "present" ? "bg-emerald-600 hover:bg-emerald-700" : ""} onClick={() => handleStatusChange(s.id, "present")} disabled={isHistorical}>Present</Button>
+                                  <Button size="sm" variant={status === "absent" ? "destructive" : "outline"} onClick={() => handleStatusChange(s.id, "absent")} disabled={isHistorical}>Absent</Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
 
-      {focusedStudent && (
-        <section className="surface-card p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="font-semibold">{focusedStudent.students?.full_name ?? "Student"}</p>
-              <p className="text-xs text-muted-foreground">
-                Admission #: {focusedStudent.students?.admission_number ?? "—"}
-              </p>
-            </div>
-            <Badge variant="secondary">
-              <Lock className="mr-1 h-3 w-3" />
-              Historical — read only
-            </Badge>
-          </div>
-        </section>
-      )}
-
-      {/* ==================================================
-       * SUMMARY STATS
-       * ================================================== */}
-
-      <div
-        className={cn(
-          "grid gap-3",
-          focusedStudent ? "sm:grid-cols-2 md:grid-cols-4" : "sm:grid-cols-2 md:grid-cols-5",
-        )}
-      >
-        <StatCard
-          label="Attendance"
-          value={summary.percentage === null ? "—" : `${summary.percentage.toFixed(1)}%`}
-        />
-        <StatCard label="Present" value={summary.present} />
-        <StatCard label="Late" value={summary.late} />
-        <StatCard label="Absent" value={summary.absent} />
-        <StatCard label="Recorded days" value={summary.recorded} />
-      </div>
-
-      {/* ==================================================
-       * HISTORY TABLE
-       * ================================================== */}
-
-      {isLoading ? (
-        <div className="surface-card divide-y divide-border">
-          {Array.from({ length: 5 }).map((_, index) => (
-            <div key={index} className="flex items-center justify-between gap-3 p-3">
-              <Skeleton className="h-4 w-1/4" />
-              <Skeleton className="h-4 w-1/3" />
-              <Skeleton className="h-4 w-1/6" />
-              <Skeleton className="h-4 w-1/6" />
-              <Skeleton className="h-4 w-1/5" />
-              <Skeleton className="h-4 w-1/5" />
-            </div>
-          ))}
-        </div>
-      ) : isError ? (
-        <Alert variant="destructive">
-          <AlertTitle>Unable to load attendance history</AlertTitle>
-          <AlertDescription>
-            {error instanceof Error ? error.message : "Something went wrong."}
-          </AlertDescription>
-          <div className="mt-3">
-            <Button size="sm" variant="outline" onClick={() => void refetch()}>
-              <RefreshCw className="mr-2 h-3 w-3" />
-              Retry
-            </Button>
-          </div>
-        </Alert>
-      ) : rows.length === 0 ? (
-        <div className="surface-card p-6 text-center">
-          <p className="font-semibold">No attendance records found</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {studentSearchActive
-              ? "Try a different student name or admission number."
-              : "No records match the selected class and date range."}
-          </p>
-        </div>
-      ) : (
-        <div className="surface-card overflow-x-auto">
-          <table className="w-full min-w-[720px] text-sm">
-            <thead className="bg-secondary/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
-              <tr>
-                <th className="px-4 py-3">Date</th>
-                <th className="px-3 py-3">Student</th>
-                <th className="px-3 py-3">Admission No.</th>
-                <th className="px-3 py-3">Status</th>
-                <th className="px-3 py-3">Recorded By</th>
-                <th className="px-3 py-3">Recorded At</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {rows.map((row) => {
-                const isLocked = row.attendance_date < today;
-
-                return (
-                  <tr key={row.id}>
-                    <td className="px-4 py-2 align-middle">
-                      <div className="flex items-center gap-1.5">
-                        <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                        {format(parseISO(row.attendance_date), "PP")}
-                        {isLocked && (
-                          <Lock
-                            className="h-3.5 w-3.5 text-muted-foreground"
-                            aria-label="Locked: previous date"
-                          />
-                        )}
+                    {!isHistorical && (
+                      <div className="flex items-center justify-between pt-4 border-t">
+                        <span className="text-sm font-medium text-emerald-600">{saveStatus}</span>
+                        <Button onClick={handleSaveAttendance} disabled={isSaving} className="gap-2"><Save className="h-4 w-4" /> {isSaving ? "Saving..." : "Save Attendance"}</Button>
                       </div>
-                    </td>
-                    <td className="px-3 py-2 align-middle">{row.students?.full_name ?? "—"}</td>
-                    <td className="px-3 py-2 align-middle text-muted-foreground">
-                      {row.students?.admission_number ?? "—"}
-                    </td>
-                    <td className="px-3 py-2 align-middle">
-                      <StatusBadge status={row.status as Status} />
-                    </td>
-                    <td className="px-3 py-2 align-middle text-muted-foreground">
-                      {row.profiles?.full_name ?? "—"}
-                    </td>
-                    <td className="px-3 py-2 align-middle text-muted-foreground">
-                      {row.created_at ? format(parseISO(row.created_at), "PPp") : "—"}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
-}
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-/* =========================================================
- * PAGE
- * ========================================================= */
 
-function AttendancePage() {
-  return (
-    <AppShell title="Attendance" description="Daily register & history — works offline">
-      <Tabs defaultValue="register" className="w-full">
-        <TabsList className="mb-4 grid w-full grid-cols-2 sm:flex">
-          <TabsTrigger value="register">Daily Register</TabsTrigger>
-          <TabsTrigger value="history">History</TabsTrigger>
-        </TabsList>
+          {/* TAB 2: ATTENDANCE RECORDS & HISTORY */}
+          <TabsContent value="history" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>View Student Attendance History</CardTitle>
+                <CardDescription>Select a student to inspect their attendance percentage and daily logs.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2 max-w-md">
+                  <Label>Student</Label>
+                  <Select value={historyStudentId} onValueChange={setHistoryStudentId}>
+                    <SelectTrigger><SelectValue placeholder="Select student..." /></SelectTrigger>
+                    <SelectContent>
+                      {historyAvailableStudents.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>{s.full_name} ({s.admission_number || "No Admin No."})</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-        <TabsContent value="register">
-          <DailyRegister />
-        </TabsContent>
+                {historyStudentId && (
+                  <div className="pt-4 space-y-6">
+                    <div className="grid gap-4 sm:grid-cols-4">
+                      <Card className="bg-muted/50">
+                        <CardContent className="pt-6">
+                          <div className="text-2xl font-bold">{historyStats.total}</div>
+                          <p className="text-xs text-muted-foreground">Total School Days</p>
+                        </CardContent>
+                      </Card>
+                      <Card className="bg-emerald-500/5">
+                        <CardContent className="pt-6">
+                          <div className="text-2xl font-bold text-emerald-600">{historyStats.present}</div>
+                          <p className="text-xs text-muted-foreground">Days Present</p>
+                        </CardContent>
+                      </Card>
+                      <Card className="bg-destructive/5">
+                        <CardContent className="pt-6">
+                          <div className="text-2xl font-bold text-destructive">{historyStats.absent}</div>
+                          <p className="text-xs text-muted-foreground">Days Absent</p>
+                        </CardContent>
+                      </Card>
+                      <Card className="bg-primary/5">
+                        <CardContent className="pt-6">
+                          <div className="text-2xl font-bold text-primary">{historyStats.percentage}%</div>
+                          <p className="text-xs text-muted-foreground">Attendance Percentage</p>
+                        </CardContent>
+                      </Card>
+                    </div>
 
-        <TabsContent value="history">
-          <AttendanceHistory />
-        </TabsContent>
-      </Tabs>
+                    <div className="space-y-2">
+                      <h4 className="font-semibold text-sm">Attendance Logs</h4>
+                      {historyLoading ? (
+                        <div className="py-6 text-center text-muted-foreground">Loading history...</div>
+                      ) : historyRecords.length === 0 ? (
+                        <div className="py-6 text-center text-muted-foreground">No historical records found for this student.</div>
+                      ) : (
+                        <div className="rounded-md border">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Date</TableHead>
+                                <TableHead>Class</TableHead>
+                                <TableHead className="text-right">Status</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {historyRecords.map((r) => (
+                                <TableRow key={r.id}>
+                                  <TableCell className="font-medium">{r.attendance_date}</TableCell>
+                                  <TableCell>{(r.classes as any)?.name || "Unknown"}</TableCell>
+                                  <TableCell className="text-right">
+                                    <Badge className={r.status === "present" ? "bg-emerald-600" : "bg-destructive"}>
+                                      {r.status === "present" ? "Present" : "Absent"}
+                                    </Badge>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
     </AppShell>
   );
 }
+

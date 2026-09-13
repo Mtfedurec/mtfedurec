@@ -598,12 +598,16 @@ export function useSetAssessmentControl() {
 }
 
 export async function logAudit(action: string, target?: string, details?: string) {
-  const session = await getSessionSafely();
-  if (!session?.user) return;
-  await supabase.from("audit_logs").insert({
-    actor_id: session.user.id,
-    action,
-    target: target ?? null,
-    details: details ?? null,
-  });
+  try {
+    const session = await getSessionSafely();
+    if (!session?.user) return;
+    await supabase.from("audit_logs").insert({
+      actor_id: session.user.id,
+      action,
+      target: target ?? null,
+      details: details ?? null,
+    });
+  } catch (err) {
+    console.warn("Audit logging failed:", err);
+  }
 }

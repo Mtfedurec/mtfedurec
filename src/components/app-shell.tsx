@@ -34,7 +34,7 @@ type UserRole = "admin" | "head_teacher" | "teacher";
 type NavItem = {
   to:
     | "/dashboard"
-    | "/attendance"
+    
     | "/assessment"
     | "/assessment-controls"
     | "/behaviour"
@@ -45,7 +45,8 @@ type NavItem = {
     | "/audit"
     | "/settings"
     | "/announcements"
-    | "/notifications";
+    | "/notifications"
+    | "/attendance";
   label: string;
   icon: typeof LayoutDashboard;
   roles: UserRole[];
