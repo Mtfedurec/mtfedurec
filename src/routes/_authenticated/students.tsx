@@ -54,6 +54,7 @@ function StudentsPage() {
   const [search, setSearch] = useState("");
   const { data: students = [] } = useStudents(filter || undefined);
   const queryClient = useQueryClient();
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [form, setForm] = useState({
     full_name: "",
     admission_number: "",
@@ -62,6 +63,7 @@ function StudentsPage() {
     guardian_name: "",
     guardian_phone: "",
     guardian_email: "",
+    date_of_birth: "",
   });
   const [busy, setBusy] = useState(false);
 
@@ -77,21 +79,49 @@ function StudentsPage() {
     (s as { full_name: string }).full_name.toLowerCase().includes(search.toLowerCase()),
   );
 
-  async function addStudent(event: React.FormEvent) {
+  async function saveStudent(event: React.FormEvent) {
     event.preventDefault();
     setBusy(true);
-    const { error } = await supabase.from("students").insert({
-      ...form,
+
+    const dataToSave = {
+      full_name: form.full_name,
+      admission_number: form.admission_number,
+      gender: form.gender,
       class_id: form.class_id || null,
+      guardian_name: form.guardian_name,
+      guardian_phone: form.guardian_phone,
       guardian_email: form.guardian_email.trim() || null,
-    });
-    setBusy(false);
-    if (error) {
-      toast.error(error.message);
-      return;
+      date_of_birth: form.date_of_birth || null,
+    };
+
+    if (selectedStudentId) {
+      const { error } = await supabase
+        .from("students")
+        .update(dataToSave as any)
+        .eq("id", selectedStudentId);
+      if (error) {
+        toast.error(`Update failed: ${error.message}`);
+      } else {
+        toast.success("Student updated");
+        void logAudit("student.updated", form.admission_number, form.full_name);
+        setSelectedStudentId(null);
+        resetForm();
+      }
+    } else {
+      const { error } = await supabase.from("students").insert(dataToSave as any);
+      if (error) {
+        toast.error(`Admission failed: ${error.message}`);
+      } else {
+        toast.success("Student admitted");
+        void logAudit("student.created", form.admission_number, form.full_name);
+        resetForm();
+      }
     }
-    toast.success("Student admitted");
-    void logAudit("student.created", form.admission_number, form.full_name);
+    setBusy(false);
+    void queryClient.invalidateQueries({ queryKey: ["students"] });
+  }
+
+  function resetForm() {
     setForm({
       full_name: "",
       admission_number: "",
@@ -100,9 +130,11 @@ function StudentsPage() {
       guardian_name: "",
       guardian_phone: "",
       guardian_email: "",
+      date_of_birth: "",
     });
-    void queryClient.invalidateQueries({ queryKey: ["students"] });
+    setSelectedStudentId(null);
   }
+
 
   async function handleImportFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.currentTarget.files?.[0];
@@ -192,7 +224,7 @@ function StudentsPage() {
   return (
     <AppShell title="Students" description={`${students.length} active record(s)`}>
       <form
-        onSubmit={addStudent}
+        onSubmit={saveStudent}
         className="surface-card grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3"
       >
         <div className="space-y-2">
@@ -224,6 +256,15 @@ function StudentsPage() {
             <option value="female">Female</option>
             <option value="male">Male</option>
           </select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="dob">Date of birth</Label>
+          <Input
+            id="dob"
+            type="date"
+            value={form.date_of_birth}
+            onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })}
+          />
         </div>
         <div className="space-y-2">
           <Label htmlFor="class_id">Class</Label>
@@ -272,12 +313,23 @@ function StudentsPage() {
         </div>
         <div className="sm:col-span-2 lg:col-span-3">
           <Button type="submit" disabled={busy}>
-            Admit student
+            {selectedStudentId ? "Save changes" : "Admit student"}
           </Button>
+          {selectedStudentId && (
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={busy}
+              onClick={resetForm}
+              className="ml-2"
+            >
+              Cancel
+            </Button>
+          )}
           <Button
             type="button"
             variant="outline"
-            disabled={busy}
+            disabled={busy || !!selectedStudentId}
             onClick={() => setShowImportDialog(true)}
             className="ml-2"
           >
@@ -285,6 +337,7 @@ function StudentsPage() {
           </Button>
         </div>
       </form>
+
 
       <div className="flex flex-wrap gap-3">
         <Input
@@ -318,20 +371,14 @@ function StudentsPage() {
               <th className="px-3 py-3">Admission no.</th>
               <th className="px-3 py-3">Class</th>
               <th className="px-4 py-3">Guardian</th>
+              <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             {visible.map((s) => {
-              const student = s as {
-                id: string;
-                full_name: string;
-                admission_number: string;
-                guardian_name: string | null;
-                guardian_email: string | null;
-                classes?: { name: string } | null;
-              };
+              const student = s as any;
               return (
-                <tr key={student.id}>
+                <tr key={student.id} className={selectedStudentId === student.id ? "bg-muted/50" : ""}>
                   <td className="px-4 py-2 font-medium">{student.full_name}</td>
                   <td className="px-3 py-2 text-muted-foreground">{student.admission_number}</td>
                   <td className="px-3 py-2">{student.classes?.name ?? "—"}</td>
@@ -340,6 +387,27 @@ function StudentsPage() {
                     {student.guardian_email && (
                       <div className="text-xs text-muted-foreground/80">{student.guardian_email}</div>
                     )}
+                  </td>
+                  <td className="px-4 py-2 text-right">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedStudentId(student.id);
+                        setForm({
+                          full_name: student.full_name || "",
+                          admission_number: student.admission_number || "",
+                          gender: (student as any).gender || "female",
+                          class_id: (student as any).class_id || "",
+                          guardian_name: student.guardian_name || "",
+                          guardian_phone: (student as any).guardian_phone || "",
+                          guardian_email: student.guardian_email || "",
+                          date_of_birth: (student as any).date_of_birth || "",
+                        });
+                      }}
+                    >
+                      Edit
+                    </Button>
                   </td>
                 </tr>
               );
@@ -549,3 +617,8 @@ function StudentsPage() {
     </AppShell>
   );
 }
+
+
+
+
+
