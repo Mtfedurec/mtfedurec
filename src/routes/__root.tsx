@@ -79,14 +79,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "MayDan EduRecord — Offline-First School Records" },
+      { title: "MTF EduRec — Offline-First School Records" },
       {
         name: "description",
         content:
           "Attendance, assessments, behaviour and report cards for one school. Works offline, syncs automatically.",
       },
-      { name: "author", content: "MayDan EduRecord" },
-      { property: "og:title", content: "MayDan EduRecord" },
+      { name: "author", content: "MTF EduRec" },
+      { property: "og:title", content: "MTF EduRec" },
       {
         property: "og:description",
         content: "Smart. Secure. Offline. Accurate. Academic records management for schools.",

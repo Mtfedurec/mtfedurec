@@ -29,12 +29,12 @@ export const Route = createFileRoute("/_authenticated/settings")({
   },
   head: () => ({
     meta: [
-      { title: "Settings — MayDan EduRecord" },
+      { title: "Settings — MTF EduRec" },
       {
         name: "description",
         content: "School profile, terms, grade scale, assessment components and staff roles.",
       },
-      { property: "og:title", content: "Settings — MayDan EduRecord" },
+      { property: "og:title", content: "Settings — MTF EduRec" },
       { property: "og:description", content: "School configuration and staff role management." },
     ],
   }),

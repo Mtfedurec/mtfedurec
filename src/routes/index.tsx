@@ -12,13 +12,13 @@ import { Button } from "@/components/ui/button";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "MayDan EduRecord — Offline-First School Academic Records" },
+      { title: "MTF EduRec — Offline-First School Academic Records" },
       {
         name: "description",
         content:
           "Replace paper registers with attendance, assessments, behaviour and report cards that keep working offline and sync automatically.",
       },
-      { property: "og:title", content: "MayDan EduRecord" },
+      { property: "og:title", content: "MTF EduRec" },
       {
         property: "og:description",
         content:
@@ -66,7 +66,7 @@ function Landing() {
             <GraduationCap className="size-5" />
           </span>
           <div>
-            <p className="text-sm font-bold">MayDan EduRecord</p>
+            <p className="text-sm font-bold">MTF EduRec</p>
             <p className="text-xs text-muted-foreground">Smart. Secure. Offline. Accurate.</p>
           </div>
         </div>
@@ -85,7 +85,7 @@ function Landing() {
               The academic record room, in every teacher&apos;s pocket.
             </h2>
             <p className="mt-5 max-w-xl text-base text-muted-foreground">
-              MayDan EduRecord replaces paper registers, manual score sheets and scattered
+              MTF EduRec replaces paper registers, manual score sheets and scattered
               spreadsheets with one secure system for attendance, assessment, behaviour and report
               cards — usable in a classroom with no connection at all.
             </p>
@@ -136,7 +136,7 @@ function Landing() {
       </section>
 
       <footer className="border-t border-border py-6 text-center text-xs text-muted-foreground">
-        MayDan EduRecord · Academic records management · Version 1.0
+        MTF EduRec · Academic records management · Version 1.0
       </footer>
     </div>
   );

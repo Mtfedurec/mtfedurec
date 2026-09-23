@@ -36,12 +36,12 @@ export const Route = createFileRoute("/_authenticated/students")({
   },
   head: () => ({
     meta: [
-      { title: "Students — MayDan EduRecord" },
+      { title: "Students — MTF EduRec" },
       {
         name: "description",
         content: "Admission records, class placement and guardian details for every student.",
       },
-      { property: "og:title", content: "Students — MayDan EduRecord" },
+      { property: "og:title", content: "Students — MTF EduRec" },
       { property: "og:description", content: "Student admission and class placement records." },
     ],
   }),

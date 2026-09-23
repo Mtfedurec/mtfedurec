@@ -42,12 +42,12 @@ export const Route = createFileRoute("/_authenticated/assessment-controls")({
   },
   head: () => ({
     meta: [
-      { title: "Assessment Controls — MayDan EduRecord" },
+      { title: "Assessment Controls — MTF EduRec" },
       {
         name: "description",
         content: "Control whether teachers can enter or edit assessment scores.",
       },
-      { property: "og:title", content: "Assessment Controls — MayDan EduRecord" },
+      { property: "og:title", content: "Assessment Controls — MTF EduRec" },
       {
         property: "og:description",
         content: "Open, pause or lock assessment entry by term.",

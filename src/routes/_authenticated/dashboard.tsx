@@ -20,12 +20,12 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
   },
   head: () => ({
     meta: [
-      { title: "Dashboard — MayDan EduRecord" },
+      { title: "Dashboard — MTF EduRec" },
       {
         name: "description",
         content: "Daily overview of attendance, assessment progress and pending approvals.",
       },
-      { property: "og:title", content: "Dashboard — MayDan EduRecord" },
+      { property: "og:title", content: "Dashboard — MTF EduRec" },
       { property: "og:description", content: "Daily academic overview for school staff." },
     ],
   }),
