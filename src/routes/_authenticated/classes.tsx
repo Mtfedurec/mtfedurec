@@ -23,7 +23,7 @@ export const Route = createFileRoute("/_authenticated/classes")({
   },
   head: () => ({
     meta: [
-      { title: "Classes & Academic Setup — MayDan EduRecord" },
+      { title: "Classes & Academic Setup — MTF EduRec" },
       {
         name: "description",
         content: "Manage school classes, subjects, class teachers and subject teachers.",

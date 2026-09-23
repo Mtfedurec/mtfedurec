@@ -20,18 +20,18 @@ import { Label } from "@/components/ui/label";
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "Sign in — MayDan EduRecord" },
+      { title: "Sign in — MTF EduRec" },
       {
         name: "description",
-        content: "Secure administrator and teacher access to MayDan EduRecord.",
+        content: "Secure administrator and teacher access to MTF EduRec.",
       },
       {
         property: "og:title",
-        content: "Sign in — MayDan EduRecord",
+        content: "Sign in — MTF EduRec",
       },
       {
         property: "og:description",
-        content: "Secure administrator and teacher access to MayDan EduRecord.",
+        content: "Secure administrator and teacher access to MTF EduRec.",
       },
     ],
   }),
@@ -396,7 +396,7 @@ function AuthPage() {
             <GraduationCap className="size-5" />
           </span>
 
-          <span className="text-base font-bold">MayDan EduRecord</span>
+          <span className="text-base font-bold">MTF EduRec</span>
         </Link>
 
         <div className="surface-card p-6">
@@ -407,7 +407,7 @@ function AuthPage() {
           {view === "roles" && (
             <>
               <div className="text-center">
-                <h1 className="text-xl font-bold">Welcome to MayDan EduRecord</h1>
+                <h1 className="text-xl font-bold">Welcome to MTF EduRec</h1>
 
                 <p className="mt-2 text-sm text-muted-foreground">
                   Select the type of account you are using.
@@ -580,7 +580,7 @@ function AuthPage() {
 
               <div className="mt-6 rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
                 <strong className="text-foreground">Important:</strong> Choosing a login type does
-                not change your permissions. MayDan checks your actual role in the school database
+                not change your permissions. MTF EduRec checks your actual role in the school database
                 after authentication.
               </div>
             </>
@@ -781,7 +781,7 @@ function AuthPage() {
         </div>
 
         <p className="mt-5 text-center text-xs text-muted-foreground">
-          MayDan EduRecord • Secure school records
+          MTF EduRec • Secure school records
         </p>
       </div>
     </div>

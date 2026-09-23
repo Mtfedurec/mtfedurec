@@ -19,13 +19,13 @@ export const Route = createFileRoute("/_authenticated/behaviour")({
   },
   head: () => ({
     meta: [
-      { title: "Behaviour assessment — MayDan EduRecord" },
+      { title: "Behaviour assessment — MTF EduRec" },
       {
         name: "description",
         content:
           "Rate affective and psychomotor traits for each student to complete the report card.",
       },
-      { property: "og:title", content: "Behaviour assessment — MayDan EduRecord" },
+      { property: "og:title", content: "Behaviour assessment — MTF EduRec" },
       { property: "og:description", content: "Affective and psychomotor trait ratings." },
     ],
   }),

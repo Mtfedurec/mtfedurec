@@ -291,7 +291,7 @@ export function AppShell({
           </div>
 
           <div className="min-w-0">
-            <p className="truncate text-sm font-bold tracking-tight">MayDan EduRecord</p>
+            <p className="truncate text-sm font-bold tracking-tight">MTF EduRec</p>
 
             <p className="truncate text-xs text-sidebar-foreground/70">
               {school?.name ?? "Academic records"}

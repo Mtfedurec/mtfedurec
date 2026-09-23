@@ -29,7 +29,7 @@ export const Route = createFileRoute("/_authenticated/attendance")({
   },
   head: () => ({
     meta: [
-      { title: "Student Attendance — MayDan EduRecord" },
+      { title: "Student Attendance — MTF EduRec" },
       { name: "description", content: "Daily student register and punctuality tracking." },
     ],
   }),

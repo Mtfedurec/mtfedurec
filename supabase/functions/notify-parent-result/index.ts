@@ -15,7 +15,7 @@ serve(async (req: Request) => {
       template?: string;
     };
 
-    const schoolName = payload.school_name || Deno.env.get("SCHOOL_NAME") || "MayDan Academy";
+    const schoolName = payload.school_name || Deno.env.get("SCHOOL_NAME") || "MTF EduRec";
     const senderEmail = payload.sender_email || Deno.env.get("RESULTS_SENDER_EMAIL");
     const replyToEmail = payload.reply_to_email || Deno.env.get("RESULTS_REPLY_TO_EMAIL");
     const portalLink = payload.portal_link || Deno.env.get("APP_BASE_URL") || "/auth";
@@ -33,7 +33,7 @@ serve(async (req: Request) => {
 
     const template =
       payload.template ||
-      `Dear Parent/Guardian,\n\nYour child's academic result for {{term}} {{session}} is now available on the MayDan EduRecord portal.\n\nPlease log in to view the result.\n\nStudent: {{student_name}}\nClass: {{class}}\n\nView Result:\n{{portal_link}}\n\nThank you,\n{{school_name}}`;
+      `Dear Parent/Guardian,\n\nYour child's academic result for {{term}} {{session}} is now available on the MTF EduRec portal.\n\nPlease log in to view the result.\n\nStudent: {{student_name}}\nClass: {{class}}\n\nView Result:\n{{portal_link}}\n\nThank you,\n{{school_name}}`;
 
     const emailBody = template
       .replace(/{{student_name}}/g, payload.student_name || "Student")
