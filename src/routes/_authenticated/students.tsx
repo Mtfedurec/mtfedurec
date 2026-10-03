@@ -36,12 +36,12 @@ export const Route = createFileRoute("/_authenticated/students")({
   },
   head: () => ({
     meta: [
-      { title: "Students — MayDan EduRecord" },
+      { title: "Students — MTF EduRec" },
       {
         name: "description",
         content: "Admission records, class placement and guardian details for every student.",
       },
-      { property: "og:title", content: "Students — MayDan EduRecord" },
+      { property: "og:title", content: "Students — MTF EduRec" },
       { property: "og:description", content: "Student admission and class placement records." },
     ],
   }),
@@ -97,7 +97,7 @@ function StudentsPage() {
     if (selectedStudentId) {
       const { error } = await supabase
         .from("students")
-        .update(dataToSave as any)
+        .update(dataToSave)
         .eq("id", selectedStudentId);
       if (error) {
         toast.error(`Update failed: ${error.message}`);
@@ -108,7 +108,7 @@ function StudentsPage() {
         resetForm();
       }
     } else {
-      const { error } = await supabase.from("students").insert(dataToSave as any);
+      const { error } = await supabase.from("students").insert(dataToSave);
       if (error) {
         toast.error(`Admission failed: ${error.message}`);
       } else {
@@ -134,7 +134,6 @@ function StudentsPage() {
     });
     setSelectedStudentId(null);
   }
-
 
   async function handleImportFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.currentTarget.files?.[0];
@@ -191,7 +190,7 @@ function StudentsPage() {
       setImportBusy(true);
       setImportStep("importing");
 
-      const { error } = await supabase.from("students").insert(importPreview.validRows as any);
+      const { error } = await supabase.from("students").insert(importPreview.validRows);
 
       if (error) {
         toast.error(`Import failed: ${error.message}`);
@@ -338,7 +337,6 @@ function StudentsPage() {
         </div>
       </form>
 
-
       <div className="flex flex-wrap gap-3">
         <Input
           placeholder="Search by name"
@@ -376,16 +374,21 @@ function StudentsPage() {
           </thead>
           <tbody className="divide-y divide-border">
             {visible.map((s) => {
-              const student = s as any;
+              const student = s;
               return (
-                <tr key={student.id} className={selectedStudentId === student.id ? "bg-muted/50" : ""}>
+                <tr
+                  key={student.id}
+                  className={selectedStudentId === student.id ? "bg-muted/50" : ""}
+                >
                   <td className="px-4 py-2 font-medium">{student.full_name}</td>
                   <td className="px-3 py-2 text-muted-foreground">{student.admission_number}</td>
                   <td className="px-3 py-2">{student.classes?.name ?? "—"}</td>
                   <td className="px-4 py-2 text-muted-foreground">
                     <div>{student.guardian_name ?? "—"}</div>
                     {student.guardian_email && (
-                      <div className="text-xs text-muted-foreground/80">{student.guardian_email}</div>
+                      <div className="text-xs text-muted-foreground/80">
+                        {student.guardian_email}
+                      </div>
                     )}
                   </td>
                   <td className="px-4 py-2 text-right">
@@ -397,12 +400,12 @@ function StudentsPage() {
                         setForm({
                           full_name: student.full_name || "",
                           admission_number: student.admission_number || "",
-                          gender: (student as any).gender || "female",
-                          class_id: (student as any).class_id || "",
+                          gender: student.gender || "female",
+                          class_id: student.class_id || "",
                           guardian_name: student.guardian_name || "",
-                          guardian_phone: (student as any).guardian_phone || "",
+                          guardian_phone: student.guardian_phone || "",
                           guardian_email: student.guardian_email || "",
-                          date_of_birth: (student as any).date_of_birth || "",
+                          date_of_birth: student.date_of_birth || "",
                         });
                       }}
                     >
@@ -431,8 +434,8 @@ function StudentsPage() {
               <AlertDialogHeader>
                 <AlertDialogTitle>Import students</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Upload a CSV or Excel spreadsheet with student data. Download a template to see the
-                  required format.
+                  Upload a CSV or Excel spreadsheet with student data. Download a template to see
+                  the required format.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <div className="space-y-4">
@@ -464,9 +467,7 @@ function StudentsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="photos">
-                    Photos archive (optional ZIP with student photos)
-                  </Label>
+                  <Label htmlFor="photos">Photos archive (optional ZIP with student photos)</Label>
                   <Input
                     id="photos"
                     type="file"
@@ -510,7 +511,9 @@ function StudentsPage() {
                   </div>
                   <div className="rounded-lg bg-success/15 p-3">
                     <p className="text-xs text-muted-foreground">Valid</p>
-                    <p className="text-lg font-semibold text-success">{importPreview.summary.valid}</p>
+                    <p className="text-lg font-semibold text-success">
+                      {importPreview.summary.valid}
+                    </p>
                   </div>
                   <div className="rounded-lg bg-warning/15 p-3">
                     <p className="text-xs text-muted-foreground">Duplicates</p>
@@ -520,7 +523,9 @@ function StudentsPage() {
                   </div>
                   <div className="rounded-lg bg-error/15 p-3">
                     <p className="text-xs text-muted-foreground">Invalid</p>
-                    <p className="text-lg font-semibold text-error">{importPreview.summary.invalid}</p>
+                    <p className="text-lg font-semibold text-error">
+                      {importPreview.summary.invalid}
+                    </p>
                   </div>
                 </div>
 
@@ -585,11 +590,7 @@ function StudentsPage() {
                 <AlertDialogAction
                   onClick={() => void confirmImport()}
                   disabled={!importPreview.validRows.length || importBusy}
-                  className={
-                    !importPreview.validRows.length
-                      ? "opacity-50 cursor-not-allowed"
-                      : ""
-                  }
+                  className={!importPreview.validRows.length ? "opacity-50 cursor-not-allowed" : ""}
                 >
                   {importBusy ? "Importing..." : `Import ${importPreview.summary.valid} students`}
                 </AlertDialogAction>
@@ -617,8 +618,3 @@ function StudentsPage() {
     </AppShell>
   );
 }
-
-
-
-
-

@@ -17,17 +17,17 @@ export async function getValidatedSession() {
     }
 
     const session = sessionData.session;
-    
+
     // Attempt to verify user, but do not sign out on network error.
     const { data: userData, error: userError } = await supabase.auth.getUser();
-    
+
     // Only invalidate if the auth server says the user is unauthorized/missing
     if (userError || !userData?.user || session.user.id !== userData.user.id) {
-       // Check if it's a 401 Unauthorized (invalid session)
-       if (userError && (userError as any).status === 401) {
-         await supabase.auth.signOut({ scope: "global" }).catch(() => undefined);
-       }
-       return null;
+      // Check if it's a 401 Unauthorized (invalid session)
+      if (userError && (userError as { status?: number }).status === 401) {
+        await supabase.auth.signOut({ scope: "global" }).catch(() => undefined);
+      }
+      return null;
     }
 
     return { session, user: userData.user };

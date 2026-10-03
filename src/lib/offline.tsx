@@ -542,10 +542,15 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
         if (error) {
           if (entry.table === "attendance") {
+            const diag = error as unknown as {
+              code?: string;
+              details?: string;
+              hint?: string;
+            };
             console.error("[ATTENDANCE_DIAGNOSTIC] Supabase error.message:", error.message);
-            console.error("[ATTENDANCE_DIAGNOSTIC] Supabase error.code:", (error as any).code);
-            console.error("[ATTENDANCE_DIAGNOSTIC] Supabase error.details:", (error as any).details);
-            console.error("[ATTENDANCE_DIAGNOSTIC] Supabase error.hint:", (error as any).hint);
+            console.error("[ATTENDANCE_DIAGNOSTIC] Supabase error.code:", diag.code);
+            console.error("[ATTENDANCE_DIAGNOSTIC] Supabase error.details:", diag.details);
+            console.error("[ATTENDANCE_DIAGNOSTIC] Supabase error.hint:", diag.hint);
           }
           throw error;
         }

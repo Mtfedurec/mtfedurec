@@ -49,12 +49,12 @@ export const Route = createFileRoute("/_authenticated/reports")({
   },
   head: () => ({
     meta: [
-      { title: "Report cards — MayDan EduRecord" },
+      { title: "Report cards — MTF EduRec" },
       {
         name: "description",
         content: "Generate, comment on, publish and print termly student report cards.",
       },
-      { property: "og:title", content: "Report cards — MayDan EduRecord" },
+      { property: "og:title", content: "Report cards — MTF EduRec" },
       { property: "og:description", content: "Termly report card generation and publishing." },
     ],
   }),
@@ -265,11 +265,14 @@ function ReportsPage() {
           const result = await sendParentResultNotification({
             to: guardianEmail,
             student_name: (student as { full_name?: string }).full_name || "Student",
-            class_name: (
-              classes.find((c) => (c as { id: string }).id === classId) as {
-                name?: string;
-              } | undefined
-            )?.name || "Class",
+            class_name:
+              (
+                classes.find((c) => (c as { id: string }).id === classId) as
+                  | {
+                      name?: string;
+                    }
+                  | undefined
+              )?.name || "Class",
             term: term?.name || "Term",
             session: (
               (
@@ -278,7 +281,7 @@ function ReportsPage() {
                 }
               )?.academic_sessions?.name || "Session"
             ).toString(),
-            school_name: (school as { name?: string })?.name || "MayDan Academy",
+            school_name: (school as { name?: string })?.name || "MTF EduRec",
             portal_link: `${typeof window !== "undefined" ? window.location.origin : ""}`,
           });
 
@@ -328,7 +331,7 @@ function ReportsPage() {
             }
           )?.academic_sessions?.name || "Session"
         ).toString(),
-        school_name: (school as { name?: string })?.name || "MayDan Academy",
+        school_name: (school as { name?: string })?.name || "MTF EduRec",
         portal_link: `${typeof window !== "undefined" ? window.location.origin : ""}`,
       });
 
@@ -391,7 +394,7 @@ function ReportsPage() {
 
       <article className="surface-card p-6">
         <header className="border-b border-border pb-4 text-center">
-          <h2 className="text-lg font-bold">{school?.name ?? "MayDan Academy"}</h2>
+          <h2 className="text-lg font-bold">{school?.name ?? "MTF EduRec"}</h2>
           <p className="text-xs text-muted-foreground">
             {school?.motto ?? "Knowledge and character"}
           </p>
@@ -561,8 +564,8 @@ function ReportsPage() {
               />
             </div>
             <p className="text-xs text-muted-foreground">
-              The email will notify the parent that their child's result is available on the
-              portal. They must log in to view full details.
+              The email will notify the parent that their child's result is available on the portal.
+              They must log in to view full details.
             </p>
           </div>
           <div className="flex justify-end gap-3">

@@ -19,12 +19,12 @@ export const Route = createFileRoute("/_authenticated/approvals")({
   },
   head: () => ({
     meta: [
-      { title: "Approvals — MayDan EduRecord" },
+      { title: "Approvals — MTF EduRec" },
       {
         name: "description",
         content: "Review and decide on correction requests raised by teachers for locked records.",
       },
-      { property: "og:title", content: "Approvals — MayDan EduRecord" },
+      { property: "og:title", content: "Approvals — MTF EduRec" },
       { property: "og:description", content: "Correction request review queue." },
     ],
   }),

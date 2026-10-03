@@ -1,4 +1,4 @@
-const CACHE_NAME = "maydan-app-v1";
+const CACHE_NAME = "mtf-edurec-app-v1";
 
 self.addEventListener("install", () => {
   self.skipWaiting();
@@ -11,7 +11,7 @@ self.addEventListener("activate", (event) => {
       .then((keys) =>
         Promise.all(
           keys
-            .filter((key) => key.startsWith("maydan-app-") && key !== CACHE_NAME)
+            .filter((key) => key.startsWith("mtf-edurec-app-") && key !== CACHE_NAME)
             .map((key) => caches.delete(key)),
         ),
       )

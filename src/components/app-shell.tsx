@@ -34,7 +34,6 @@ type UserRole = "admin" | "head_teacher" | "teacher";
 type NavItem = {
   to:
     | "/dashboard"
-    
     | "/assessment"
     | "/assessment-controls"
     | "/behaviour"
@@ -259,7 +258,7 @@ export function AppShell({
     try {
       await queryClient.cancelQueries();
       queryClient.clear();
-      localStorage.removeItem("maydan-query-cache");
+      localStorage.removeItem("mtf-edurec-query-cache");
       await supabase.auth.signOut({ scope: "global" });
     } finally {
       navigate({
@@ -291,7 +290,7 @@ export function AppShell({
           </div>
 
           <div className="min-w-0">
-            <p className="truncate text-sm font-bold tracking-tight">MayDan EduRecord</p>
+            <p className="truncate text-sm font-bold tracking-tight">MTF EduRec</p>
 
             <p className="truncate text-xs text-sidebar-foreground/70">
               {school?.name ?? "Academic records"}

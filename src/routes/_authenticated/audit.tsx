@@ -15,12 +15,12 @@ export const Route = createFileRoute("/_authenticated/audit")({
   },
   head: () => ({
     meta: [
-      { title: "Audit log — MayDan EduRecord" },
+      { title: "Audit log — MTF EduRec" },
       {
         name: "description",
         content: "Append-only history of record changes, submissions and approval decisions.",
       },
-      { property: "og:title", content: "Audit log — MayDan EduRecord" },
+      { property: "og:title", content: "Audit log — MTF EduRec" },
       { property: "og:description", content: "Traceable history of academic record activity." },
     ],
   }),

@@ -8,7 +8,7 @@ ALTER TABLE public.school_settings
   ADD COLUMN IF NOT EXISTS result_email_subject TEXT DEFAULT 'Academic result update',
   ADD COLUMN IF NOT EXISTS result_email_template TEXT DEFAULT 'Dear Parent/Guardian,
 
-Your child''s academic result for {{term}} {{session}} is now available on the MayDan EduRecord portal.
+Your child''s academic result for {{term}} {{session}} is now available on the MTF EduRec portal.
 
 Please log in to view the result.
 

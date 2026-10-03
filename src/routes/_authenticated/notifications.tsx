@@ -25,12 +25,12 @@ export const Route = createFileRoute("/_authenticated/notifications")({
   },
   head: () => ({
     meta: [
-      { title: "Notifications — MayDan EduRecord" },
+      { title: "Notifications — MTF EduRec" },
       {
         name: "description",
         content: "View school announcements and notification history.",
       },
-      { property: "og:title", content: "Notifications — MayDan EduRecord" },
+      { property: "og:title", content: "Notifications — MTF EduRec" },
       {
         property: "og:description",
         content: "School announcements and staff notifications.",

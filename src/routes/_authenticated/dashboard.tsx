@@ -2,14 +2,7 @@ import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { getValidatedSession } from "@/integrations/supabase/auth-helper";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  
-  ClipboardList,
-  ShieldCheck,
-  Users,
-  GraduationCap,
-  FileText,
-} from "lucide-react";
+import { ClipboardList, ShieldCheck, Users, GraduationCap, FileText } from "lucide-react";
 import { AppShell, StatCard } from "@/components/app-shell";
 import { useClasses, useProfile, useStudents, useTerms } from "@/lib/data";
 
@@ -20,12 +13,12 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
   },
   head: () => ({
     meta: [
-      { title: "Dashboard — MayDan EduRecord" },
+      { title: "Dashboard — MTF EduRec" },
       {
         name: "description",
         content: "Daily overview of attendance, assessment progress and pending approvals.",
       },
-      { property: "og:title", content: "Dashboard — MayDan EduRecord" },
+      { property: "og:title", content: "Dashboard — MTF EduRec" },
       { property: "og:description", content: "Daily academic overview for school staff." },
     ],
   }),
@@ -45,7 +38,6 @@ function Dashboard() {
   const { data: terms = [] } = useTerms();
   const currentTerm = terms.find((t) => (t as { is_current: boolean }).is_current) as
     { id: string; name: string; academic_sessions?: { name: string } | null } | undefined;
-
 
   const { data: pending = 0 } = useQuery({
     queryKey: ["pending-corrections"],

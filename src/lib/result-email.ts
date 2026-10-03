@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export const DEFAULT_RESULT_EMAIL_TEMPLATE = `Dear Parent/Guardian,
 
-Your child's academic result for {{term}} {{session}} is now available on the MayDan EduRecord portal.
+Your child's academic result for {{term}} {{session}} is now available on the MTF EduRec portal.
 
 Please log in to view the result.
 

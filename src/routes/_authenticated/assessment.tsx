@@ -48,7 +48,7 @@ export const Route = createFileRoute("/_authenticated/assessment")({
   head: () => ({
     meta: [
       {
-        title: "Assessment scores — MayDan EduRecord",
+        title: "Assessment scores — MTF EduRec",
       },
       {
         name: "description",
@@ -57,7 +57,7 @@ export const Route = createFileRoute("/_authenticated/assessment")({
       },
       {
         property: "og:title",
-        content: "Assessment scores — MayDan EduRecord",
+        content: "Assessment scores — MTF EduRec",
       },
       {
         property: "og:description",

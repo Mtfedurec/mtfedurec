@@ -1,18 +1,9 @@
-# mtfedurec
+# MTF EduRec
 
-Analyze this project and build the app
+MTF EduRec is a school management application for attendance, assessments, behaviour and report
+cards. It keeps working when the network drops and syncs automatically when connectivity returns.
 
-This project was built with [Lovable](https://lovable.dev).
-
-**Live app**: https://mtfedurec.lovable.app
-
-## Build with Lovable
-
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/aabcd54a-9949-4d06-8fa6-98f3619d8e94).
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
+**Owned and developed by Maytoygraphix.**
 
 ## Development
 

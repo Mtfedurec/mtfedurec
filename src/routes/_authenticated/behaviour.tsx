@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { getValidatedSession } from "@/integrations/supabase/auth-helper";
+import { getSessionSafely, getValidatedSession } from "@/integrations/supabase/auth-helper";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -19,13 +19,13 @@ export const Route = createFileRoute("/_authenticated/behaviour")({
   },
   head: () => ({
     meta: [
-      { title: "Behaviour assessment — MayDan EduRecord" },
+      { title: "Behaviour assessment — MTF EduRec" },
       {
         name: "description",
         content:
           "Rate affective and psychomotor traits for each student to complete the report card.",
       },
-      { property: "og:title", content: "Behaviour assessment — MayDan EduRecord" },
+      { property: "og:title", content: "Behaviour assessment — MTF EduRec" },
       { property: "og:description", content: "Affective and psychomotor trait ratings." },
     ],
   }),
