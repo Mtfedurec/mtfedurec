@@ -152,7 +152,7 @@ export async function downloadStudentImportTemplate() {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = "maydan-student-import-template.csv";
+  link.download = "mtf-edurec-student-import-template.csv";
   link.click();
   URL.revokeObjectURL(url);
 }

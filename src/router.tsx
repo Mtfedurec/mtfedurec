@@ -2,7 +2,7 @@ import { dehydrate, hydrate, QueryClient } from "@tanstack/react-query";
 import { createRouter } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
 
-const QUERY_CACHE_KEY = "maydan-query-cache";
+const QUERY_CACHE_KEY = "mtf-edurec-query-cache";
 const QUERY_CACHE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 
 function restoreQueryCache(queryClient: QueryClient) {

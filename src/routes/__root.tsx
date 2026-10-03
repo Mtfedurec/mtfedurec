@@ -79,21 +79,23 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "MTF EduRec — Offline-First School Records" },
+      { title: "MTF EduRec" },
       {
         name: "description",
         content:
-          "Attendance, assessments, behaviour and report cards for one school. Works offline, syncs automatically.",
+          "MTF EduRec is a school management application for attendance, assessments, behaviour and report cards. Works offline and syncs automatically.",
       },
-      { name: "author", content: "MTF EduRec" },
+      { name: "application-name", content: "MTF EduRec" },
+      { name: "author", content: "Maytoygraphix" },
+      { property: "og:site_name", content: "MTF EduRec" },
       { property: "og:title", content: "MTF EduRec" },
       {
         property: "og:description",
-        content: "Smart. Secure. Offline. Accurate. Academic records management for schools.",
+        content:
+          "School management for attendance, assessments, behaviour and report cards. Owned and developed by Maytoygraphix.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@Lovable" },
     ],
     links: [
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -106,7 +108,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: appCss,
       },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "icon", href: "/mtf-favicon.png", type: "image/png" },
+      { rel: "apple-touch-icon", href: "/mtf-favicon.png" },
     ],
   }),
   shellComponent: RootShell,
@@ -145,7 +148,7 @@ function RootComponent() {
     const { data } = supabase.auth.onAuthStateChange((event) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
       if (event === "SIGNED_OUT") {
-        localStorage.removeItem("maydan-query-cache");
+        localStorage.removeItem("mtf-edurec-query-cache");
         queryClient.clear();
       }
       router.invalidate();

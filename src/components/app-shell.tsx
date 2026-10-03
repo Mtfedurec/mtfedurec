@@ -259,7 +259,7 @@ export function AppShell({
     try {
       await queryClient.cancelQueries();
       queryClient.clear();
-      localStorage.removeItem("maydan-query-cache");
+      localStorage.removeItem("mtf-edurec-query-cache");
       await supabase.auth.signOut({ scope: "global" });
     } finally {
       navigate({

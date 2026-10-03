@@ -16,7 +16,7 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Replace paper registers with attendance, assessments, behaviour and report cards that keep working offline and sync automatically.",
+          "MTF EduRec is a school management application for attendance, assessments, behaviour and report cards that keep working offline and sync automatically.",
       },
       { property: "og:title", content: "MTF EduRec" },
       {
@@ -136,7 +136,7 @@ function Landing() {
       </section>
 
       <footer className="border-t border-border py-6 text-center text-xs text-muted-foreground">
-        MTF EduRec · Academic records management · Version 1.0
+        © 2026 Maytoygraphix · MTF EduRec · Academic records management · Version 1.0
       </footer>
     </div>
   );

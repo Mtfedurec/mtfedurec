@@ -781,7 +781,7 @@ function AuthPage() {
         </div>
 
         <p className="mt-5 text-center text-xs text-muted-foreground">
-          MTF EduRec • Secure school records
+          MTF EduRec • Secure school records • © 2026 Maytoygraphix
         </p>
       </div>
     </div>

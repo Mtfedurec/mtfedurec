@@ -1,6 +1,8 @@
 {
-  "name": "tanstack_start_ts",
+  "name": "mtf-edurec",
   "private": true,
+  "description": "MTF EduRec — a school management application for attendance, assessments, behaviour and report cards. Owned and developed by Maytoygraphix.",
+  "author": "Maytoygraphix",
   "sideEffects": false,
   "type": "module",
   "scripts": {
