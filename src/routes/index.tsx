@@ -85,9 +85,9 @@ function Landing() {
               The academic record room, in every teacher&apos;s pocket.
             </h2>
             <p className="mt-5 max-w-xl text-base text-muted-foreground">
-              MTF EduRec replaces paper registers, manual score sheets and scattered
-              spreadsheets with one secure system for attendance, assessment, behaviour and report
-              cards — usable in a classroom with no connection at all.
+              MTF EduRec replaces paper registers, manual score sheets and scattered spreadsheets
+              with one secure system for attendance, assessment, behaviour and report cards — usable
+              in a classroom with no connection at all.
             </p>
             <div className="mt-7 flex flex-wrap gap-3">
               <Button asChild size="lg">

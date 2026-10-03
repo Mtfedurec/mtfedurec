@@ -34,7 +34,6 @@ type UserRole = "admin" | "head_teacher" | "teacher";
 type NavItem = {
   to:
     | "/dashboard"
-    
     | "/assessment"
     | "/assessment-controls"
     | "/behaviour"

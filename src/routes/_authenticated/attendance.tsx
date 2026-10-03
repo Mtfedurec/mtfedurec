@@ -13,10 +13,23 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 export const Route = createFileRoute("/_authenticated/attendance")({
   beforeLoad: async () => {
@@ -84,8 +97,9 @@ function AttendancePage() {
   }, [allClasses, assignedClassIds, isAdmin]);
 
   useEffect(() => {
-    if (!selectedClassId && availableClasses.length > 0) {
-      setSelectedClassId(availableClasses[0].id);
+    const firstClass = availableClasses[0];
+    if (!selectedClassId && firstClass) {
+      setSelectedClassId(firstClass.id);
     }
   }, [availableClasses, selectedClassId]);
 
@@ -170,8 +184,8 @@ function AttendancePage() {
       queryClient.invalidateQueries({ queryKey: ["student-attendance"] });
       queryClient.invalidateQueries({ queryKey: ["student-attendance-history"] });
       refetchAttendance();
-    } catch (err: any) {
-      const msg = err.message || "Failed to save attendance";
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to save attendance";
       setSaveStatus(`Error: ${msg}`);
       toast.error(msg);
     } finally {
@@ -207,9 +221,11 @@ function AttendancePage() {
     return allStudents.filter((s) => s.class_id && assignedClassIds.includes(s.class_id));
   }, [allStudents, assignedClassIds, isAdmin]);
 
-
   return (
-    <AppShell>
+    <AppShell
+      title="Student Attendance"
+      description="Daily student register and punctuality tracking."
+    >
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Student Attendance</h1>
@@ -235,10 +251,14 @@ function AttendancePage() {
                 <div className="space-y-2">
                   <Label>Class</Label>
                   <Select value={selectedClassId} onValueChange={setSelectedClassId}>
-                    <SelectTrigger><SelectValue placeholder="Select class..." /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select class..." />
+                    </SelectTrigger>
                     <SelectContent>
                       {availableClasses.map((cls) => (
-                        <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>
+                        <SelectItem key={cls.id} value={cls.id}>
+                          {cls.name}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -246,8 +266,14 @@ function AttendancePage() {
                 <div className="space-y-2">
                   <Label>Date (Africa/Lagos)</Label>
                   <div className="flex gap-2">
-                    <Input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
-                    <Button variant="outline" onClick={() => setSelectedDate(todayLagos)}>Today</Button>
+                    <Input
+                      type="date"
+                      value={selectedDate}
+                      onChange={(e) => setSelectedDate(e.target.value)}
+                    />
+                    <Button variant="outline" onClick={() => setSelectedDate(todayLagos)}>
+                      Today
+                    </Button>
                   </div>
                 </div>
               </CardContent>
@@ -256,14 +282,18 @@ function AttendancePage() {
             {isHistorical && (
               <div className="flex items-center gap-3 rounded-lg border border-amber-500/50 bg-amber-500/10 p-4 text-amber-950">
                 <Lock className="h-5 w-5 text-amber-600" />
-                <div className="text-sm font-medium">Historical Attendance Locked: Date is read-only.</div>
+                <div className="text-sm font-medium">
+                  Historical Attendance Locked: Date is read-only.
+                </div>
               </div>
             )}
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
-                  <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" /> Roster ({classStudents.length})</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5" /> Roster ({classStudents.length})
+                  </CardTitle>
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2 text-sm">
@@ -271,7 +301,9 @@ function AttendancePage() {
                     <Badge variant="destructive">Absent: {absentCount}</Badge>
                   </div>
                   {!isHistorical && (
-                    <Button variant="outline" size="sm" onClick={handleMarkAllPresent}>Mark All Present</Button>
+                    <Button variant="outline" size="sm" onClick={handleMarkAllPresent}>
+                      Mark All Present
+                    </Button>
                   )}
                 </div>
               </CardHeader>
@@ -297,8 +329,27 @@ function AttendancePage() {
                               <TableCell className="font-medium">{s.full_name}</TableCell>
                               <TableCell className="text-right">
                                 <div className="flex justify-end gap-2">
-                                  <Button size="sm" variant={status === "present" ? "default" : "outline"} className={status === "present" ? "bg-emerald-600 hover:bg-emerald-700" : ""} onClick={() => handleStatusChange(s.id, "present")} disabled={isHistorical}>Present</Button>
-                                  <Button size="sm" variant={status === "absent" ? "destructive" : "outline"} onClick={() => handleStatusChange(s.id, "absent")} disabled={isHistorical}>Absent</Button>
+                                  <Button
+                                    size="sm"
+                                    variant={status === "present" ? "default" : "outline"}
+                                    className={
+                                      status === "present"
+                                        ? "bg-emerald-600 hover:bg-emerald-700"
+                                        : ""
+                                    }
+                                    onClick={() => handleStatusChange(s.id, "present")}
+                                    disabled={isHistorical}
+                                  >
+                                    Present
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant={status === "absent" ? "destructive" : "outline"}
+                                    onClick={() => handleStatusChange(s.id, "absent")}
+                                    disabled={isHistorical}
+                                  >
+                                    Absent
+                                  </Button>
                                 </div>
                               </TableCell>
                             </TableRow>
@@ -310,7 +361,13 @@ function AttendancePage() {
                     {!isHistorical && (
                       <div className="flex items-center justify-between pt-4 border-t">
                         <span className="text-sm font-medium text-emerald-600">{saveStatus}</span>
-                        <Button onClick={handleSaveAttendance} disabled={isSaving} className="gap-2"><Save className="h-4 w-4" /> {isSaving ? "Saving..." : "Save Attendance"}</Button>
+                        <Button
+                          onClick={handleSaveAttendance}
+                          disabled={isSaving}
+                          className="gap-2"
+                        >
+                          <Save className="h-4 w-4" /> {isSaving ? "Saving..." : "Save Attendance"}
+                        </Button>
                       </div>
                     )}
                   </div>
@@ -319,22 +376,27 @@ function AttendancePage() {
             </Card>
           </TabsContent>
 
-
           {/* TAB 2: ATTENDANCE RECORDS & HISTORY */}
           <TabsContent value="history" className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>View Student Attendance History</CardTitle>
-                <CardDescription>Select a student to inspect their attendance percentage and daily logs.</CardDescription>
+                <CardDescription>
+                  Select a student to inspect their attendance percentage and daily logs.
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2 max-w-md">
                   <Label>Student</Label>
                   <Select value={historyStudentId} onValueChange={setHistoryStudentId}>
-                    <SelectTrigger><SelectValue placeholder="Select student..." /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select student..." />
+                    </SelectTrigger>
                     <SelectContent>
                       {historyAvailableStudents.map((s) => (
-                        <SelectItem key={s.id} value={s.id}>{s.full_name} ({s.admission_number || "No Admin No."})</SelectItem>
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.full_name} ({s.admission_number || "No Admin No."})
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -351,19 +413,25 @@ function AttendancePage() {
                       </Card>
                       <Card className="bg-emerald-500/5">
                         <CardContent className="pt-6">
-                          <div className="text-2xl font-bold text-emerald-600">{historyStats.present}</div>
+                          <div className="text-2xl font-bold text-emerald-600">
+                            {historyStats.present}
+                          </div>
                           <p className="text-xs text-muted-foreground">Days Present</p>
                         </CardContent>
                       </Card>
                       <Card className="bg-destructive/5">
                         <CardContent className="pt-6">
-                          <div className="text-2xl font-bold text-destructive">{historyStats.absent}</div>
+                          <div className="text-2xl font-bold text-destructive">
+                            {historyStats.absent}
+                          </div>
                           <p className="text-xs text-muted-foreground">Days Absent</p>
                         </CardContent>
                       </Card>
                       <Card className="bg-primary/5">
                         <CardContent className="pt-6">
-                          <div className="text-2xl font-bold text-primary">{historyStats.percentage}%</div>
+                          <div className="text-2xl font-bold text-primary">
+                            {historyStats.percentage}%
+                          </div>
                           <p className="text-xs text-muted-foreground">Attendance Percentage</p>
                         </CardContent>
                       </Card>
@@ -372,9 +440,13 @@ function AttendancePage() {
                     <div className="space-y-2">
                       <h4 className="font-semibold text-sm">Attendance Logs</h4>
                       {historyLoading ? (
-                        <div className="py-6 text-center text-muted-foreground">Loading history...</div>
+                        <div className="py-6 text-center text-muted-foreground">
+                          Loading history...
+                        </div>
                       ) : historyRecords.length === 0 ? (
-                        <div className="py-6 text-center text-muted-foreground">No historical records found for this student.</div>
+                        <div className="py-6 text-center text-muted-foreground">
+                          No historical records found for this student.
+                        </div>
                       ) : (
                         <div className="rounded-md border">
                           <Table>
@@ -389,9 +461,13 @@ function AttendancePage() {
                               {historyRecords.map((r) => (
                                 <TableRow key={r.id}>
                                   <TableCell className="font-medium">{r.attendance_date}</TableCell>
-                                  <TableCell>{(r.classes as any)?.name || "Unknown"}</TableCell>
+                                  <TableCell>{r.classes?.name || "Unknown"}</TableCell>
                                   <TableCell className="text-right">
-                                    <Badge className={r.status === "present" ? "bg-emerald-600" : "bg-destructive"}>
+                                    <Badge
+                                      className={
+                                        r.status === "present" ? "bg-emerald-600" : "bg-destructive"
+                                      }
+                                    >
                                       {r.status === "present" ? "Present" : "Absent"}
                                     </Badge>
                                   </TableCell>
@@ -412,4 +488,3 @@ function AttendancePage() {
     </AppShell>
   );
 }
-

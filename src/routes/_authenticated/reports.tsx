@@ -265,11 +265,14 @@ function ReportsPage() {
           const result = await sendParentResultNotification({
             to: guardianEmail,
             student_name: (student as { full_name?: string }).full_name || "Student",
-            class_name: (
-              classes.find((c) => (c as { id: string }).id === classId) as {
-                name?: string;
-              } | undefined
-            )?.name || "Class",
+            class_name:
+              (
+                classes.find((c) => (c as { id: string }).id === classId) as
+                  | {
+                      name?: string;
+                    }
+                  | undefined
+              )?.name || "Class",
             term: term?.name || "Term",
             session: (
               (
@@ -561,8 +564,8 @@ function ReportsPage() {
               />
             </div>
             <p className="text-xs text-muted-foreground">
-              The email will notify the parent that their child's result is available on the
-              portal. They must log in to view full details.
+              The email will notify the parent that their child's result is available on the portal.
+              They must log in to view full details.
             </p>
           </div>
           <div className="flex justify-end gap-3">

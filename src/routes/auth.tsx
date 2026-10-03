@@ -580,8 +580,8 @@ function AuthPage() {
 
               <div className="mt-6 rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
                 <strong className="text-foreground">Important:</strong> Choosing a login type does
-                not change your permissions. MTF EduRec checks your actual role in the school database
-                after authentication.
+                not change your permissions. MTF EduRec checks your actual role in the school
+                database after authentication.
               </div>
             </>
           )}
@@ -787,5 +787,3 @@ function AuthPage() {
     </div>
   );
 }
-
-

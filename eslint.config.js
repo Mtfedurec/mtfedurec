@@ -6,7 +6,19 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", ".output", ".vinxi"] },
+  {
+    ignores: [
+      "dist",
+      "dist-ssr",
+      ".output",
+      ".vinxi",
+      ".nitro",
+      ".wrangler",
+      ".tanstack",
+      ".kilo",
+      "node_modules",
+    ],
+  },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],
@@ -36,5 +48,15 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-vars": "off",
     },
   },
-  eslintPluginPrettier,
+  {
+    // shadcn/ui primitives and the offline provider intentionally export
+    // non-component values (style variants, context + hooks) alongside components.
+    files: ["src/components/ui/**/*.{ts,tsx}", "src/lib/offline.tsx"],
+    rules: {
+      "react-refresh/only-export-components": "off",
+    },
+  },
+  {
+    ...eslintPluginPrettier,
+  },
 );

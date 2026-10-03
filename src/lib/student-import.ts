@@ -63,7 +63,10 @@ function normalizeText(value: unknown): string {
 }
 
 function normalizeHeader(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 }
 
 function findHeaderKey(row: Record<string, unknown>, target: string) {
@@ -132,13 +135,13 @@ export async function downloadStudentImportTemplate() {
     {
       "Student Name": "Jane Doe",
       "Student ID": "ST001",
-      "Gender": "female",
+      Gender: "female",
       "Date of Birth": "2014-04-15",
-      "Class": "JSS 2A",
+      Class: "JSS 2A",
       "Parent/Guardian Name": "Mary Doe",
       "Parent Email": "parent@example.com",
       "Parent Phone": "+2348000000000",
-      "Address": "12 Main Street, Lagos",
+      Address: "12 Main Street, Lagos",
       "Passport Photograph": "ST001.jpg",
     },
   ];
@@ -214,16 +217,26 @@ export async function parseStudentImportFile(
       if (matchEntry) row[matchEntry[0]] = normalizeText(value);
     }
 
-    const full_name = normalizeText(row.full_name || row.name);
-    const admission_number = normalizeText(row.admission_number || row.student_id || row.id);
-    const gender = normalizeText(row.gender).toLowerCase();
-    const date_of_birth = parseDateValue(row.date_of_birth || row.dob || row.birth_date);
-    const class_name = normalizeText(row.class_name || row.class);
-    const guardian_name = normalizeText(row.guardian_name || row.guardian || row.parent_name);
-    const guardian_email = normalizeText(row.guardian_email || row.parent_email || row.email);
-    const guardian_phone = normalizeText(row.guardian_phone || row.parent_phone || row.phone);
-    const address = normalizeText(row.address || row.home_address);
-    const photo_file = normalizeText(row.photo_file || row.passport_photo || row.photograph);
+    const full_name = normalizeText(row["full_name"] || row["name"]);
+    const admission_number = normalizeText(
+      row["admission_number"] || row["student_id"] || row["id"],
+    );
+    const gender = normalizeText(row["gender"]).toLowerCase();
+    const date_of_birth = parseDateValue(row["date_of_birth"] || row["dob"] || row["birth_date"]);
+    const class_name = normalizeText(row["class_name"] || row["class"]);
+    const guardian_name = normalizeText(
+      row["guardian_name"] || row["guardian"] || row["parent_name"],
+    );
+    const guardian_email = normalizeText(
+      row["guardian_email"] || row["parent_email"] || row["email"],
+    );
+    const guardian_phone = normalizeText(
+      row["guardian_phone"] || row["parent_phone"] || row["phone"],
+    );
+    const address = normalizeText(row["address"] || row["home_address"]);
+    const photo_file = normalizeText(
+      row["photo_file"] || row["passport_photo"] || row["photograph"],
+    );
 
     const reasons: string[] = [];
     let status: StudentImportRow["status"] = "valid";
@@ -262,7 +275,8 @@ export async function parseStudentImportFile(
 
     if (photo_file) {
       const candidate = photo_file.toLowerCase();
-      const direct = photoArchive.get(candidate) || photoArchive.get(candidate.replace(/^.*[\\/]/, ""));
+      const direct =
+        photoArchive.get(candidate) || photoArchive.get(candidate.replace(/^.*[\\/]/, ""));
       if (!direct) {
         reasons.push("Missing referenced photo");
       } else {
@@ -277,7 +291,10 @@ export async function parseStudentImportFile(
       reasons.push("Student ID already exists in database");
     }
 
-    if (status === "invalid" && reasons.some((reason) => reason.includes("Duplicate Student ID within file"))) {
+    if (
+      status === "invalid" &&
+      reasons.some((reason) => reason.includes("Duplicate Student ID within file"))
+    ) {
       status = "duplicate";
     }
 
@@ -312,14 +329,18 @@ export async function parseStudentImportFile(
     validRows.push({
       full_name,
       admission_number,
-      gender: ["male", "m"].includes(gender) ? "male" : ["female", "f"].includes(gender) ? "female" : "other",
+      gender: ["male", "m"].includes(gender)
+        ? "male"
+        : ["female", "f"].includes(gender)
+          ? "female"
+          : "other",
       date_of_birth,
       class_id: classRecord?.id ?? null,
       guardian_name,
       guardian_email,
       guardian_phone,
       address,
-      photo_url: photo_file ? photoArchive.get(photo_file.toLowerCase()) ?? null : null,
+      photo_url: photo_file ? (photoArchive.get(photo_file.toLowerCase()) ?? null) : null,
     });
   }
 
