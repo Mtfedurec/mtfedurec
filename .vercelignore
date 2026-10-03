@@ -1,0 +1,17 @@
+.git
+.gitignore
+README.md
+AGENTS.md
+TASK1_AUDIT_REPORT.md
+TASK1_SECURITY_AUDIT_REPORT.md
+.env.local
+.env.*.local
+node_modules
+.cache
+dist
+.output/server/.nitro
+.kilo
+.lovable
+.vscode
+.idea
+*.log
